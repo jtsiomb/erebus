@@ -1,5 +1,5 @@
-Erebus
-======
+Erebus renderer
+===============
 
 #![Erebus](http://nuclear.mutantstargoat.com/sw/erebus/img/erebus_banner_med.jpg)
 
