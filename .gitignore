@@ -1,0 +1,15 @@
+*.o
+*.swp
+*.d
+*.lvl
+*.scn
+*.obj
+*.mtl
+*.png
+*.jpg
+*.rgbe
+*.hdr
+.cache/
+*.a
+*.lib
+*.json
