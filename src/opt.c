@@ -5,9 +5,9 @@
 
 struct options opt = {
 	1280, 960,
-	1,					/* nsamples */
+	16,					/* nsamples */
 	0,					/* input file */
-	"output.png",		/* output file */
+	"output.hdr",		/* output file */
 	0,					/* shared memory path */
 	0,					/* number of threads (0=auto) */
 	16,					/* tile size */

@@ -1,7 +1,8 @@
 *.o
 *.swp
 *.d
-*.lvl
+erebus
+*.erebus
 *.scn
 *.obj
 *.mtl
