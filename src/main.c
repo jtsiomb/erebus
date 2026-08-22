@@ -25,7 +25,7 @@ int main(int argc, char **argv)
 	}
 	fbsize(opt.width, opt.height);
 
-	if(0) {//scn.camlist) {
+	if(scn.camlist) {
 		cgm_mcopy(view_xform, scn.camlist->node.matrix);
 	} else {
 		cgm_mtranslation(view_xform, 0, 1.6, 0);
@@ -49,6 +49,18 @@ int main(int argc, char **argv)
 		fbptr->z *= s;
 		fbptr->w = 1.0f;
 		fbptr++;
+	}
+
+	if(opt.gamma != 1.0f) {
+		float inv_gamma = 1.0f / opt.gamma;
+
+		fbptr = fb.pixels;
+		for(i=0; i<npixels; i++) {
+			fbptr->x = pow(fbptr->x, inv_gamma);
+			fbptr->y = pow(fbptr->y, inv_gamma);
+			fbptr->z = pow(fbptr->z, inv_gamma);
+			fbptr++;
+		}
 	}
 
 	if(img_save_pixels(opt.outfile, fb.pixels, fb.width, fb.height, IMG_FMT_RGBAF) == -1) {

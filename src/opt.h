@@ -10,6 +10,8 @@ struct options {
 	int nthreads;
 	int tilesz;
 	int max_iter;
+
+	float gamma;
 };
 
 extern struct options opt;

@@ -11,7 +11,8 @@ struct options opt = {
 	0,					/* shared memory path */
 	0,					/* number of threads (0=auto) */
 	16,					/* tile size */
-	6					/* max recursion depth */
+	6,					/* max recursion depth */
+	1.0f				/* gamma */
 };
 
 static const char *usage_fmt = "Usage: %s [options] <scene file>\n"
@@ -22,6 +23,7 @@ static const char *usage_fmt = "Usage: %s [options] <scene file>\n"
 	" -t,-threads <N>: override number of threads\n"
 	" -tile <N>: render tile size\n"
 	" -d,-depth <N>: maximum recursion depth\n"
+	" -gamma <N>: gamma exponent for the output image\n"
 	" -h,-help: print usage information and exit\n\n";
 
 int parse_args(int argc, char **argv)
@@ -57,6 +59,12 @@ int parse_args(int argc, char **argv)
 			} else if(strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "-depth") == 0) {
 				if(!argv[++i] || (opt.max_iter = atoi(argv[i])) <= 0) {
 					fprintf(stderr, "%s must be followed by the maximum recursion depth\n", argv[i - 1]);
+					return -1;
+				}
+
+			} else if(strcmp(argv[i], "-gamma") == 0) {
+				if(!argv[++i] || (opt.gamma = atof(argv[i])) <= 0.0f) {
+					fprintf(stderr, "-gamma must be followed by a gamma value\n");
 					return -1;
 				}
 
