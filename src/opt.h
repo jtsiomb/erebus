@@ -10,6 +10,9 @@ struct options {
 	int nthreads;
 	int tilesz;
 	int max_iter;
+#ifdef USE_OIDN
+	int denoise;
+#endif
 
 	float gamma;
 };

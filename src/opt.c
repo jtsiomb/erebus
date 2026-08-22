@@ -5,13 +5,16 @@
 
 struct options opt = {
 	1280, 960,
-	16,					/* nsamples */
+	10,					/* nsamples */
 	0,					/* input file */
 	"output.hdr",		/* output file */
 	0,					/* shared memory path */
 	0,					/* number of threads (0=auto) */
 	16,					/* tile size */
 	6,					/* max recursion depth */
+#ifdef USE_OIDN
+	1,					/* denoise */
+#endif
 	1.0f				/* gamma */
 };
 
@@ -23,6 +26,9 @@ static const char *usage_fmt = "Usage: %s [options] <scene file>\n"
 	" -t,-threads <N>: override number of threads\n"
 	" -tile <N>: render tile size\n"
 	" -d,-depth <N>: maximum recursion depth\n"
+#ifdef USE_OIDN
+	" -D,-denoise: toggle denoising\n"
+#endif
 	" -gamma <N>: gamma exponent for the output image\n"
 	" -h,-help: print usage information and exit\n\n";
 
@@ -61,7 +67,10 @@ int parse_args(int argc, char **argv)
 					fprintf(stderr, "%s must be followed by the maximum recursion depth\n", argv[i - 1]);
 					return -1;
 				}
-
+#ifdef USE_OIDN
+			} else if(strcmp(argv[i], "-D") == 0 || strcmp(argv[i], "-denoise") == 0) {
+				opt.denoise ^= 1;
+#endif
 			} else if(strcmp(argv[i], "-gamma") == 0) {
 				if(!argv[++i] || (opt.gamma = atof(argv[i])) <= 0.0f) {
 					fprintf(stderr, "-gamma must be followed by a gamma value\n");

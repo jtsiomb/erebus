@@ -1,3 +1,5 @@
+-include cfg.mk
+
 src = $(wildcard src/*.c)
 obj = $(src:.c=.o)
 dep = $(src:.c=.d)
@@ -11,11 +13,19 @@ warn = -pedantic -Wall
 
 inc = -Ilibs -Ilibs/treestor -Ilibs/imago/src
 
-CFLAGS = -std=gnu89 $(warn) $(opt) $(dbg) $(inc) -MMD
+CFLAGS = -std=gnu89 $(warn) $(opt) $(dbg) $(inc) $(def) -MMD
 LDFLAGS = $(alibs) -lm
 
+ifeq ($(oidn), true)
+	def += -DUSE_OIDN
+	LDFLAGS += -loidn -loidn_device_cpu -loidn_core -ltbb
+	LDCC = g++
+else
+	LDCC = gcc
+endif
+
 $(bin): $(obj) libs
-	$(CC) -o $@ $(obj) $(LDFLAGS)
+	$(LDCC) -o $@ $(obj) $(LDFLAGS)
 
 -include $(dep)
 

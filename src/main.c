@@ -4,12 +4,15 @@
 #include "rt.h"
 #include "opt.h"
 #include "imago2.h"
+#include "denoise.h"
+
 
 int main(int argc, char **argv)
 {
 	int i, npixels;
 	unsigned long dur, start_time;
 	cgm_vec4 *fbptr;
+	cgm_vec3 *rgb;
 
 	if(parse_args(argc, argv) == -1) {
 		return 1;
@@ -27,6 +30,7 @@ int main(int argc, char **argv)
 
 	if(scn.camlist) {
 		cgm_mcopy(view_xform, scn.camlist->node.matrix);
+		set_fov(scn.camlist->fov);
 	} else {
 		cgm_mtranslation(view_xform, 0, 1.6, 0);
 	}
@@ -42,28 +46,38 @@ int main(int argc, char **argv)
 
 	npixels = fb.width * fb.height;
 	fbptr = fb.pixels;
+	rgb = (cgm_vec3*)fb.pixels;
 	for(i=0; i<npixels; i++) {
 		float s = 1.0f / fbptr->w;
-		fbptr->x *= s;
-		fbptr->y *= s;
-		fbptr->z *= s;
-		fbptr->w = 1.0f;
+		rgb->x = fbptr->x * s;
+		rgb->y = fbptr->y * s;
+		rgb->z = fbptr->z * s;
 		fbptr++;
+		rgb++;
 	}
+
+#ifdef USE_OIDN
+	if(opt.denoise) {
+		printf("denoising\n");
+		denoise((float*)fb.pixels, fb.width, fb.height);
+	}
+#endif
 
 	if(opt.gamma != 1.0f) {
 		float inv_gamma = 1.0f / opt.gamma;
 
-		fbptr = fb.pixels;
+		printf("gamma correction: %g\n", opt.gamma);
+
+		rgb = (cgm_vec3*)fb.pixels;
 		for(i=0; i<npixels; i++) {
-			fbptr->x = pow(fbptr->x, inv_gamma);
-			fbptr->y = pow(fbptr->y, inv_gamma);
-			fbptr->z = pow(fbptr->z, inv_gamma);
-			fbptr++;
+			rgb->x = pow(rgb->x, inv_gamma);
+			rgb->y = pow(rgb->y, inv_gamma);
+			rgb->z = pow(rgb->z, inv_gamma);
+			rgb++;
 		}
 	}
 
-	if(img_save_pixels(opt.outfile, fb.pixels, fb.width, fb.height, IMG_FMT_RGBAF) == -1) {
+	if(img_save_pixels(opt.outfile, fb.pixels, fb.width, fb.height, IMG_FMT_RGBF) == -1) {
 		fprintf(stderr, "failed to save output image to %s\n", opt.outfile);
 		return -1;
 	}

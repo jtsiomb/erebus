@@ -37,6 +37,7 @@ extern struct thread_pool *tpool;
 extern float view_xform[16];
 
 int fbsize(int width, int height);
+void set_fov(float fov);
 
 void render(int samplenum);
 

@@ -17,7 +17,7 @@ struct framebuffer fb;
 struct thread_pool *tpool;
 float view_xform[16];
 
-float vfov = M_PI / 4;
+static float zdist;		/* 1.0 / tan(fov / 2) */
 
 static float aspect;
 static struct tile *tiles;
@@ -83,9 +83,18 @@ int fbsize(int width, int height)
 	return 0;
 }
 
+void set_fov(float fov)
+{
+	zdist = 1.0f / tan(fov * 0.5f);
+}
+
 void render(int samplenum)
 {
 	int i;
+
+	if(zdist == 0.0f) {
+		set_fov(CGM_PI / 4.0f);
+	}
 
 	for(i=0; i<num_tiles; i++) {
 		tiles[i].sample = samplenum;
@@ -264,7 +273,7 @@ static void primary_ray(cgm_ray *ray, int x, int y, int sample)
 	ray->origin.x = ray->origin.y = ray->origin.z = 0.0f;
 	ray->dir.x = (2.0f * fx / (float)fb.width - 1.0f) * aspect;
 	ray->dir.y = 1.0f - 2.0f * fy / (float)fb.height;
-	ray->dir.z = -1.0f / tan(vfov / 2.0f);
+	ray->dir.z = -zdist;
 	cgm_vnormalize(&ray->dir);
 
 	cgm_rmul_mr(ray, view_xform);

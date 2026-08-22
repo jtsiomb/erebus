@@ -138,10 +138,12 @@ int load_scene(struct scene *scn, const char *fname)
 
 			if((num = ts_get_attr_num(node, "fov", 0.0f)) > 0.0f && num < 180.0f) {
 				cam->fov = cgm_deg_to_rad(num);
+			} else {
+				cam->fov = CGM_PI / 4.0f;
 			}
 
 			cam->next = scn->camlist;
-			scn->camlist->next = cam;
+			scn->camlist = cam;
 		}
 cont:	node = node->next;
 	}
@@ -388,12 +390,14 @@ int read_scene_node(struct node *node, struct ts_node *tsn)
 	if((vec = ts_get_attr_vec(tsn, "lookat", 0))) {
 		/* lookat target overrides rotation */
 		cgm_vcons(&dir, vec[0] - node->pos.x, vec[1] - node->pos.y, vec[2] - node->pos.z);
+		cgm_vnormalize(&dir);
 		cgm_vcons(&up, 0, 1, 0);
 		if(fabs(cgm_vdot(&up, &dir)) < 1e-4) {
 			cgm_vcons(&up, 0, 0, 1);
 		}
 		cgm_mlookat(matrix, &node->pos, (cgm_vec3*)vec, &up);
 		cgm_mget_rotation(matrix, &node->rot);
+		found++;
 	}
 
 	if(found) {
