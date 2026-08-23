@@ -13,6 +13,9 @@ int main(int argc, char **argv)
 	unsigned long dur, start_time;
 	cgm_vec4 *fbptr;
 	cgm_vec3 *rgb;
+#ifdef USE_OIDN
+	cgm_vec3 *alb, *nptr;
+#endif
 
 	if(parse_args(argc, argv) == -1) {
 		return 1;
@@ -47,6 +50,10 @@ int main(int argc, char **argv)
 	npixels = fb.width * fb.height;
 	fbptr = fb.pixels;
 	rgb = (cgm_vec3*)fb.pixels;
+#ifdef USE_OIDN
+	alb = fb.albedo;
+	nptr = fb.normals;
+#endif
 	for(i=0; i<npixels; i++) {
 		float s = 1.0f / fbptr->w;
 		rgb->x = fbptr->x * s;
@@ -54,12 +61,25 @@ int main(int argc, char **argv)
 		rgb->z = fbptr->z * s;
 		fbptr++;
 		rgb++;
+
+#ifdef USE_OIDN
+		if(opt.denoise) {
+			alb->x *= s;
+			alb->y *= s;
+			alb->z *= s;
+			nptr->x *= s;
+			nptr->y *= s;
+			nptr->z *= s;
+			alb++;
+			nptr++;
+		}
+#endif
 	}
 
 #ifdef USE_OIDN
 	if(opt.denoise) {
 		printf("denoising\n");
-		denoise((float*)fb.pixels, fb.width, fb.height);
+		denoise((float*)fb.pixels, (float*)fb.normals, (float*)fb.albedo, fb.width, fb.height);
 	}
 #endif
 
@@ -69,11 +89,22 @@ int main(int argc, char **argv)
 		printf("gamma correction: %g\n", opt.gamma);
 
 		rgb = (cgm_vec3*)fb.pixels;
+#ifdef USE_OIDN
+		nptr = fb.normals;
+#endif
 		for(i=0; i<npixels; i++) {
 			rgb->x = pow(rgb->x, inv_gamma);
 			rgb->y = pow(rgb->y, inv_gamma);
 			rgb->z = pow(rgb->z, inv_gamma);
 			rgb++;
+#ifdef USE_OIDN
+			if(opt.denoise) {
+				nptr->x = nptr->x * 0.5f + 0.5f;
+				nptr->y = nptr->y * 0.5f + 0.5f;
+				nptr->z = nptr->z * 0.5f + 0.5f;
+				nptr++;
+			}
+#endif
 		}
 	}
 
@@ -81,6 +112,12 @@ int main(int argc, char **argv)
 		fprintf(stderr, "failed to save output image to %s\n", opt.outfile);
 		return -1;
 	}
+#ifdef USE_OIDN
+	if(opt.denoise) {
+		img_save_pixels("dbgnorm.ppm", fb.normals, fb.width, fb.height, IMG_FMT_RGBF);
+		img_save_pixels("dbgalb.ppm", fb.albedo, fb.width, fb.height, IMG_FMT_RGBF);
+	}
+#endif
 
 	destroy_scene(&scn);
 	tpool_destroy(tpool);

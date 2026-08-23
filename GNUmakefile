@@ -18,7 +18,7 @@ LDFLAGS = $(alibs) -lm
 
 ifeq ($(oidn), true)
 	def += -DUSE_OIDN
-	LDFLAGS += -loidn -loidn_device_cpu -loidn_core -ltbb
+	LDFLAGS += -Llibs/oidn -loidn -loidn_device_cpu -loidn_core -ltbb
 	LDCC = g++
 else
 	LDCC = gcc
@@ -32,6 +32,10 @@ $(bin): $(obj) libs
 .PHONY: clean
 clean:
 	rm -f $(obj) $(bin)
+
+.PHONY: cleandep
+cleandep:
+	rm -f $(dep)
 
 # --- rules for the bundled libraries ---
 .PHONY: libs

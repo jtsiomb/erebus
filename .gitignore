@@ -16,3 +16,6 @@ erebus
 *.json
 cfg.mk
 RUN
+core.*
+*.ppm
+oidn.h

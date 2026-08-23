@@ -3,10 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <OpenImageDenoise/oidn.h>
+#include "oidn/oidn.h"
 
 
-int denoise(float *img, int width, int height)
+int denoise(float *img, float *norm, float *alb, int width, int height)
 {
 	int npixels;
 	OIDNDevice dev;
@@ -31,6 +31,10 @@ int denoise(float *img, int width, int height)
 
 	oidnSetSharedFilterImage(filter, "color", img, OIDN_FORMAT_FLOAT3, width,
 			height, 0, 0, 0);
+	oidnSetSharedFilterImage(filter, "normal", norm, OIDN_FORMAT_FLOAT3,
+			width, height, 0, 0, 0);
+	oidnSetSharedFilterImage(filter, "albedo", alb, OIDN_FORMAT_FLOAT3,
+			width, height, 0, 0, 0);
 	oidnSetSharedFilterImage(filter, "output", outimg, OIDN_FORMAT_FLOAT3, width,
 			height, 0, 0, 0);
 	oidnSetFilterBool(filter, "hdr", 1);
@@ -55,7 +59,7 @@ int denoise(float *img, int width, int height)
 
 #else
 
-int denoise(float *img, int width, int height)
+int denoise(float *img, float *norm, float *alb, int width, int height)
 {
 	return -1;
 }

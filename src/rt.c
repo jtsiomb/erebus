@@ -9,6 +9,9 @@ struct tile {
 	int x, y, width, height;
 	int sample;
 	cgm_vec4 *fbptr;
+#ifdef USE_OIDN
+	cgm_vec3 *nptr, *albptr;
+#endif
 
 	tinymt32_t rndstate;
 };
@@ -25,7 +28,7 @@ static int num_tiles;
 
 static void render_tile(struct tile *tile);
 static void ray_trace(cgm_vec3 *color, cgm_ray *ray, float energy, int max_iter);
-static void bgcolor(cgm_vec3 *color, cgm_ray *ray);
+static void bgcolor(cgm_vec3 *color, cgm_ray *ray, int max_iter);
 static void shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter);
 static void primary_ray(cgm_ray *ray, int x, int y, int sample);
 static float fresnel(float costheta, float ior);
@@ -38,20 +41,38 @@ int fbsize(int width, int height)
 {
 	int i, j, x, y, xtiles, ytiles;
 	cgm_vec4 *fbptr;
+#ifdef USE_OIDN
+	cgm_vec3 *nptr = 0, *alb = 0;
+#endif
 	struct tile *tileptr;
 
 	if(!(fbptr = malloc(width * height * sizeof *fb.pixels))) {
 		return -1;
 	}
+#ifdef USE_OIDN
+	if(opt.denoise) {
+		if(!(nptr = malloc(width * height * sizeof *fb.normals))) {
+			goto err;
+		}
+		if(!(alb = malloc(width * height * sizeof *fb.albedo))) {
+			goto err;
+		}
+	}
+#endif
 	xtiles = (width + opt.tilesz - 1) / opt.tilesz;
 	ytiles = (height + opt.tilesz - 1) / opt.tilesz;
 	if(!(tileptr = malloc(xtiles * ytiles * sizeof *tiles))) {
-		free(fbptr);
-		return -1;
+		goto err;
 	}
 
 	free(fb.pixels);
 	fb.pixels = fbptr;
+#ifdef USE_OIDN
+	free(fb.albedo);
+	free(fb.normals);
+	fb.albedo = alb;
+	fb.normals = nptr;
+#endif
 	fb.width = width;
 	fb.height = height;
 
@@ -70,6 +91,14 @@ int fbsize(int width, int height)
 			tileptr->width = width - x < opt.tilesz ? width - x : opt.tilesz;
 			tileptr->height = height - y < opt.tilesz ? height - y : opt.tilesz;
 			tileptr->fbptr = fbptr + x;
+#ifdef USE_OIDN
+			if(opt.denoise) {
+				tileptr->albptr = alb + x;
+				tileptr->nptr = nptr + x;
+			} else {
+				tileptr->albptr = tileptr->nptr = 0;
+			}
+#endif
 			tileptr->sample = 0;
 			tinymt32_init(&tileptr->rndstate, (i << 16) | j);
 			tileptr++;
@@ -77,10 +106,23 @@ int fbsize(int width, int height)
 			x += opt.tilesz;
 		}
 		fbptr += width * opt.tilesz;
+#ifdef USE_OIDN
+		if(opt.denoise) {
+			nptr += width * opt.tilesz;
+			alb += width * opt.tilesz;
+		}
+#endif
 		y += opt.tilesz;
 	}
 
 	return 0;
+err:
+	free(fbptr);
+#ifdef USE_OIDN
+	free(alb);
+	free(nptr);
+#endif
+	return -1;
 }
 
 void set_fov(float fov)
@@ -103,17 +145,32 @@ void render(int samplenum)
 	tpool_wait(tpool);
 }
 
+#ifdef USE_OIDN
+static __thread struct {
+	cgm_vec3 albedo;
+	cgm_vec3 normal;
+	int valid;
+} auxdata;
+#endif
+
 static void render_tile(struct tile *tile)
 {
 	int i, j;
 	cgm_ray ray;
 	cgm_vec3 col;
 	cgm_vec4 *fbptr = tile->fbptr;
+#ifdef USE_OIDN
+	cgm_vec3 *nptr = tile->nptr;
+	cgm_vec3 *alb = tile->albptr;
+#endif
 
 	curtile = tile;
 
 	for(i=0; i<tile->height; i++) {
 		for(j=0; j<tile->width; j++) {
+#ifdef USE_OIDN
+			auxdata.valid = 0;
+#endif
 			primary_ray(&ray, tile->x + j, tile->y + i, tile->sample);
 			if(tile->sample) {
 				ray_trace(&col, &ray, 1.0f, opt.max_iter);
@@ -121,12 +178,32 @@ static void render_tile(struct tile *tile)
 				fbptr[j].y += col.y;
 				fbptr[j].z += col.z;
 				fbptr[j].w++;
+#ifdef USE_OIDN
+				if(opt.denoise) {
+					nptr[j].x += auxdata.normal.x;
+					nptr[j].y += auxdata.normal.y;
+					nptr[j].z += auxdata.normal.z;
+					alb[j].x += auxdata.albedo.x;
+					alb[j].y += auxdata.albedo.y;
+					alb[j].z += auxdata.albedo.z;
+				}
+#endif
 			} else {
 				ray_trace((cgm_vec3*)(fbptr + j), &ray, 1.0f, opt.max_iter);
 				fbptr[j].w = 1;
+#ifdef USE_OIDN
+				if(opt.denoise) {
+					nptr[j] = auxdata.normal;
+					alb[j] = auxdata.albedo;
+				}
+#endif
 			}
 		}
 		fbptr += fb.width;
+#ifdef USE_OIDN
+		nptr += fb.width;
+		alb += fb.width;
+#endif
 	}
 }
 
@@ -137,13 +214,21 @@ static void ray_trace(cgm_vec3 *color, cgm_ray *ray, float energy, int max_iter)
 	if(max_iter && ray_scene(ray, &scn, FLT_MAX, &hit)) {
 		shade(color, &hit, energy, max_iter);
 	} else {
-		bgcolor(color, ray);
+		bgcolor(color, ray, max_iter);
 	}
 }
 
-static void bgcolor(cgm_vec3 *color, cgm_ray *ray)
+static void bgcolor(cgm_vec3 *color, cgm_ray *ray, int max_iter)
 {
 	*color = scn.bgcolor;
+#ifdef USE_OIDN
+	if(!auxdata.valid) {
+		auxdata.normal = ray->dir;
+		cgm_vneg(&auxdata.normal);
+		auxdata.albedo = *color;
+		auxdata.valid = 1;
+	}
+#endif
 }
 
 static inline float frand(void)
@@ -188,6 +273,14 @@ static void shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_ite
 	mtrans = mtlattr_num(hit->mtl, MATTR_TRANSMIT, &hit->v.tex);
 
 	mtlattr_vec(color, hit->mtl, MATTR_EMIT, &hit->v.tex);
+
+#ifdef USE_OIDN
+	if(!auxdata.valid) {
+		auxdata.albedo = mcol;
+		auxdata.normal = n;
+		auxdata.valid = 1;
+	}
+#endif
 
 	rval = frand();
 

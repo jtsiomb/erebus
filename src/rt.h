@@ -30,6 +30,10 @@ struct material {
 struct framebuffer {
 	int width, height;
 	cgm_vec4 *pixels;
+#ifdef USE_OIDN
+	cgm_vec3 *albedo;
+	cgm_vec3 *normals;
+#endif
 };
 
 extern struct framebuffer fb;
