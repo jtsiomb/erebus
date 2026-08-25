@@ -4,7 +4,7 @@
 #include "opt.h"
 
 struct options opt = {
-	1280, 960,
+	1280, 720,
 	10,					/* nsamples */
 	0,					/* input file */
 	"output.hdr",		/* output file */

@@ -2,6 +2,7 @@
 *.swp
 *.d
 erebus
+erebus-gui
 *.erebus
 *.scn
 *.obj

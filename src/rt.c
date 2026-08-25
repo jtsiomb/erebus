@@ -4,6 +4,7 @@
 #include "rt.h"
 #include "erebus.h"
 #include "tinymt32.h"
+#include "shmfb.h"
 
 struct tile {
 	int x, y, width, height;
@@ -46,8 +47,15 @@ int fbsize(int width, int height)
 #endif
 	struct tile *tileptr;
 
-	if(!(fbptr = malloc(width * height * sizeof *fb.pixels))) {
-		return -1;
+	if(opt.shm) {
+		if(shmfb_init(opt.shm, width, height) == -1) {
+			return -1;
+		}
+		fbptr = shmfb->pixels;
+	} else {
+		if(!(fbptr = malloc(width * height * sizeof *fb.pixels))) {
+			return -1;
+		}
 	}
 #ifdef USE_OIDN
 	if(opt.denoise) {
@@ -138,6 +146,10 @@ void render(int samplenum)
 		set_fov(CGM_PI / 4.0f);
 	}
 
+	if(!samplenum && shmfb) {
+		shmfb_start(num_tiles);
+	}
+
 	for(i=0; i<num_tiles; i++) {
 		tiles[i].sample = samplenum;
 		tpool_enqueue(tpool, tiles + i, (tpool_callback)render_tile, 0);
@@ -204,6 +216,10 @@ static void render_tile(struct tile *tile)
 		nptr += fb.width;
 		alb += fb.width;
 #endif
+	}
+
+	if(shmfb) {
+		shmfb_donetile();
 	}
 }
 
