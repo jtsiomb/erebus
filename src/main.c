@@ -103,7 +103,9 @@ int main(int argc, char **argv)
 	if(shmfb) goto end;
 
 	/* divide by sample count */
+#ifdef USE_OIDN
 	if(!opt.denoise) {
+#endif
 		fbptr = fb.pixels;
 		for(i=0; i<npixels; i++) {
 			float s = 1.0f / fbptr->w;
@@ -113,7 +115,9 @@ int main(int argc, char **argv)
 			fbptr->w = 1.0f;
 			fbptr++;
 		}
+#ifdef USE_OIDN
 	}
+#endif
 
 	if(opt.gamma != 1.0f) {
 		float inv_gamma = 1.0f / opt.gamma;
