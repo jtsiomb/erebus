@@ -13,76 +13,105 @@ static char *shmpath;
 
 #define CALC_SIZE(w, h)	(sizeof *shmfb + ((w) * (h) - 1) * sizeof *shmfb->pixels)
 
-int shmfb_init(const char *path, int w, int h)
+/* create a new shared memory area, sized for a wxh framebuffer, and initialize
+ * everything in it.
+ */
+int shmfb_create(const char *path, int w, int h)
 {
-	int fd, create_shm;
+	int fd;
 
 	if(!(shmpath = strdup(path))) {
-		fprintf(stderr, "shmfb_init: failed to allocate shm path buffer\n");
+		fprintf(stderr, "shmfb_create: failed to allocate shm path buffer\n");
 		return -1;
 	}
 
 	if((fd = shm_open(path, O_RDWR | O_CREAT, 0666)) == -1) {
-		fprintf(stderr, "failed to open shared memory: %s: %s\n", path, strerror(errno));
+		fprintf(stderr, "shmfb_create: failed to open shared memory: %s: %s\n", path, strerror(errno));
 		return -1;
 	}
 
-	if(w && h) {
-		/* getting valid w and h implies we're creating and resizing a shared memory area */
-		shmsz = CALC_SIZE(w, h);
-		ftruncate(fd, shmsz);
-		create_shm = 1;
-	} else {
-		/* otherwise map the header first, to get the size */
-		shmsz = sizeof *shmfb;
-		create_shm = 0;
-	}
+	shmsz = CALC_SIZE(w, h);
+	ftruncate(fd, shmsz);
 
-map:
 	if((shmfb = mmap(0, shmsz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) == (void*)-1) {
-		fprintf(stderr, "failed to map shared memory %s (%d bytes): %s\n", path, shmsz,
-				strerror(errno));
+		fprintf(stderr, "shmfb_create: failed to map shared memory %s (%d bytes): %s\n",
+				path, shmsz, strerror(errno));
 		shm_unlink(path);
 		return -1;
 	}
 
-	if(create_shm) {
-		/* it's a new shared memory area, we need to initialize things */
-		shmfb->width = w;
-		shmfb->height = h;
+	shmfb->width = w;
+	shmfb->height = h;
 
-		sem_init(&shmfb->sem, 1, 1);
+	sem_init(&shmfb->sem, 1, 1);
+	return 0;
+}
 
-	} else {
-		/* otherwise read size, and remap by jumping back */
-		w = shmfb->width;
-		h = shmfb->height;
+/* map an existing shared memory framebuffer, first a small header to find out
+ * the framebuffer dimensions, then remap the correct size.
+ */
+int shmfb_map(const char *path)
+{
+	int fd, width, height;
+
+	if(!(shmpath = strdup(path))) {
+		fprintf(stderr, "shmfb_map: failed to allocate shm path buffer\n");
+		return -1;
+	}
+
+	if((fd = shm_open(path, O_RDWR, 0)) == -1) {
+		fprintf(stderr, "shmfb_map: failed to open shared memory: %s: %s\n", path, strerror(errno));
+		return -1;
+	}
+
+	shmsz = sizeof *shmfb;
+
+	if((shmfb = mmap(0, shmsz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) == (void*)-1) {
+		fprintf(stderr, "shmfb_map: failed to map shared memory %s (%d bytes): %s\n",
+				path, shmsz, strerror(errno));
+		shm_unlink(path);
+		return -1;
+	}
+
+	width = shmfb->width;
+	height = shmfb->height;
+	if(width <= 0 || height <= 0) {
+		fprintf(stderr, "shmfb_map: shared memory header contains invalid dimensions\n");
 		munmap(shmfb, shmsz);
-		if(!w || !h) {
-			fprintf(stderr, "shmfb_init: trying to map uninitialized shared memory area\n");
-			shm_unlink(path);
-			return -1;
-		}
-		shmsz = CALC_SIZE(w, h);
-		goto map;
+		shm_unlink(path);
+		return -1;
+	}
+	munmap(shmfb, shmsz);
+	shmsz = CALC_SIZE(width, height);
+
+	if((shmfb = mmap(0, shmsz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) == (void*)-1) {
+		fprintf(stderr, "shmfb_map: failed to map shared memory %s (%d bytes): %s\n",
+				path, shmsz, strerror(errno));
+		shm_unlink(path);
+		return -1;
 	}
 	return 0;
 }
 
-void shm_destroy(void)
+void shmfb_unmap(void)
 {
 	if(!shmfb) return;
 
-	sem_destroy(&shmfb->sem);
-
 	munmap(shmfb, shmsz);
-
 	if(shmpath) {
 		shm_unlink(shmpath);
 		shmpath = 0;
 	}
 	shmfb = 0;
 	shmsz = 0;
+}
+
+void shmfb_destroy(void)
+{
+	if(!shmfb) return;
+
+	sem_destroy(&shmfb->sem);
+	shmfb_unmap();
 }
 
 void shmfb_start(int ntiles)
@@ -121,9 +150,9 @@ int shmfb_progress(void)
 	int progr;
 	sem_wait(&shmfb->sem);
 	if(shmfb->total_tiles) {
-		progr = shmfb->done_tiles / shmfb->total_tiles;
+		progr = (shmfb->done_tiles << 10) / shmfb->total_tiles;
 	} else {
-		progr = 100;
+		progr = 1024;
 	}
 	sem_post(&shmfb->sem);
 	return progr;

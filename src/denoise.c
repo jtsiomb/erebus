@@ -8,17 +8,18 @@
 
 int denoise(float *img, float *norm, float *alb, int width, int height)
 {
-	int npixels;
+	int i, npixels;
 	OIDNDevice dev;
 	OIDNFilter filter;
-	float *outimg;
+	float *outimg, *inimg, *fbptr;
 	const char *msg;
 
 	npixels = width * height;
-	if(!(outimg = malloc(npixels * 3 * sizeof *outimg))) {
-		fprintf(stderr, "denoise: failed to allocate denoise output buffer\n");
+	if(!(outimg = malloc(npixels * 6 * sizeof *outimg))) {
+		fprintf(stderr, "denoise: failed to allocate denoise buffer\n");
 		return -1;
 	}
+	inimg = outimg + npixels * 3;
 
 	if(!(dev = oidnNewDevice(OIDN_DEVICE_TYPE_CPU))) {
 		fprintf(stderr, "denoise: failed to create OIDN CPU device\n");
@@ -29,7 +30,7 @@ int denoise(float *img, float *norm, float *alb, int width, int height)
 
 	filter = oidnNewFilter(dev, "RT");
 
-	oidnSetSharedFilterImage(filter, "color", img, OIDN_FORMAT_FLOAT3, width,
+	oidnSetSharedFilterImage(filter, "color", inimg, OIDN_FORMAT_FLOAT3, width,
 			height, 0, 0, 0);
 	oidnSetSharedFilterImage(filter, "normal", norm, OIDN_FORMAT_FLOAT3,
 			width, height, 0, 0, 0);
@@ -48,8 +49,27 @@ int denoise(float *img, float *norm, float *alb, int width, int height)
 		return -1;
 	}
 
+	fbptr = img;
+	for(i=0; i<npixels; i++) {
+		float s = 1.0f / fbptr[3];
+		inimg[0] = fbptr[0] * s;
+		inimg[1] = fbptr[1] * s;
+		inimg[2] = fbptr[2] * s;
+		inimg += 3;
+		fbptr += 4;
+	}
+
 	oidnExecuteFilter(filter);
-	memcpy(img, outimg, npixels * 3 * sizeof *img);
+
+	fbptr = outimg;
+	for(i=0; i<npixels; i++) {
+		img[0] = fbptr[0];
+		img[1] = fbptr[1];
+		img[2] = fbptr[2];
+		img[3] = 1.0f;
+		fbptr += 3;
+		img += 4;
+	}
 
 	free(outimg);
 	oidnReleaseFilter(filter);

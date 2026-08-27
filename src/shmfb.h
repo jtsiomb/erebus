@@ -16,8 +16,11 @@ struct sharedfb {
 extern struct sharedfb *shmfb;
 
 
-int shmfb_init(const char *path, int w, int h);
+int shmfb_create(const char *path, int w, int h);
 void shmfb_destroy(void);
+
+int shmfb_map(const char *path);
+void shmfb_unmap(void);
 
 void shmfb_start(int ntiles);
 void shmfb_donetile(void);

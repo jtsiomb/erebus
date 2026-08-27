@@ -47,16 +47,19 @@ int fbsize(int width, int height)
 #endif
 	struct tile *tileptr;
 
-	if(opt.shm) {
-		if(shmfb_init(opt.shm, width, height) == -1) {
-			return -1;
-		}
-		fbptr = shmfb->pixels;
-	} else {
+	/* width and height will be 0 if we mapped a shared memory framebuffer
+	 * and we shouldn't allocate memory for the pixels
+	 */
+	if(width > 0 && height > 0) {
 		if(!(fbptr = malloc(width * height * sizeof *fb.pixels))) {
 			return -1;
 		}
+	} else {
+		fbptr = shmfb->pixels;
+		width = shmfb->width;
+		height = shmfb->height;
 	}
+
 #ifdef USE_OIDN
 	if(opt.denoise) {
 		if(!(nptr = malloc(width * height * sizeof *fb.normals))) {
@@ -73,18 +76,14 @@ int fbsize(int width, int height)
 		goto err;
 	}
 
-	free(fb.pixels);
 	fb.pixels = fbptr;
 #ifdef USE_OIDN
-	free(fb.albedo);
-	free(fb.normals);
 	fb.albedo = alb;
 	fb.normals = nptr;
 #endif
 	fb.width = width;
 	fb.height = height;
 
-	free(tiles);
 	tiles = tileptr;
 	num_tiles = xtiles * ytiles;
 
@@ -125,7 +124,7 @@ int fbsize(int width, int height)
 
 	return 0;
 err:
-	free(fbptr);
+	if(!shmfb) free(fbptr);
 #ifdef USE_OIDN
 	free(alb);
 	free(nptr);
@@ -180,6 +179,7 @@ static void render_tile(struct tile *tile)
 
 	for(i=0; i<tile->height; i++) {
 		for(j=0; j<tile->width; j++) {
+			if(quit) return;
 #ifdef USE_OIDN
 			auxdata.valid = 0;
 #endif
