@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	if(load_scene(&scn, opt.infile ? opt.infile : "simple.erebus") == -1) {
+	if(load_scene(&scn, opt.infile ? opt.infile : "scenes/simple.erebus") == -1) {
 		return 1;
 	}
 

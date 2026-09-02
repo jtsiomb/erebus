@@ -146,7 +146,7 @@ void render(int samplenum)
 	}
 
 	if(!samplenum && shmfb) {
-		shmfb_start(num_tiles);
+		shmfb_start(num_tiles * opt.nsamples);
 	}
 
 	for(i=0; i<num_tiles; i++) {

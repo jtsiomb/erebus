@@ -1,9 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <errno.h>
 #include <assert.h>
+#include <stdarg.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <sys/select.h>
+#include <X11/Xlib.h>
 #include "glew.h"
 #include "miniglut.h"
 #include "shmfb.h"
@@ -20,6 +25,7 @@ void reshape(int x, int y);
 void keypress(unsigned char key, int x, int y);
 void mouse(int bn, int st, int x, int y);
 void motion(int x, int y);
+void glprintf(int x, int y, const char *fmt, ...);
 
 int parse_args(int argc, char **argv);
 
@@ -33,9 +39,16 @@ static int pfd[2];
 
 static unsigned int sdr;
 
+#define STATUS_LEN		80
+static char st_text[2][STATUS_LEN + 1];
+static int st_cur, st_pg;
+
 
 int main(int argc, char **argv)
 {
+	int sz;
+	char buf[64];
+
 	if(parse_args(argc, argv) == -1) {
 		return 1;
 	}
@@ -62,7 +75,30 @@ int main(int argc, char **argv)
 	}
 	atexit(cleanup);
 
-	glutMainLoop();
+	for(;;) {
+		/* renderer pipe has messages */
+		while((sz = read(0, buf, sizeof buf)) > 0) {
+			char *src = buf;
+			char *dst = st_text[st_pg ^ 1];
+			while(sz-- && st_cur < STATUS_LEN) {
+				int c = *src++;
+
+				if(c == '\n') {
+					dst = st_text[st_pg];
+					st_pg ^= 1;
+					st_text[st_pg][st_cur] = 0;
+					st_cur = 0;
+					printf("INPUT: %s\n", st_text[st_pg]);
+					glutPostRedisplay();
+
+				} else if(isprint(c)) {
+					dst[st_cur++] = c;
+				}
+			}
+		}
+
+		glutMainLoopEvent();
+	}
 	return 0;
 }
 
@@ -71,13 +107,15 @@ int spawn_renderer(int argc, char **argv)
 	static char szarg_buf[32];
 	int i, msg;
 	char **rend_argv;
+	int errpipe[2];		/* second pipe used to detect exec failure */
 
 	sprintf(shmpath, "/erebus-gui.%d", getpid());
 
-	/* launch the renderer */
 	pipe(pfd);
-	fcntl(pfd[0], F_SETFD, FD_CLOEXEC);
-	fcntl(pfd[1], F_SETFD, FD_CLOEXEC);
+
+	pipe(errpipe);
+	fcntl(errpipe[0], F_SETFD, FD_CLOEXEC);
+	fcntl(errpipe[1], F_SETFD, FD_CLOEXEC);
 
 	if((rend_pid = fork()) == -1) {
 		perror("failed to fork the renderer");
@@ -85,6 +123,14 @@ int spawn_renderer(int argc, char **argv)
 	}
 
 	if(!rend_pid) {
+		/* in child process, replace stdout/stderr with write end of the pipe */
+		close(1);
+		close(2);
+		dup(pfd[1]);
+		dup(pfd[1]);
+		close(pfd[0]);
+		close(pfd[1]);
+
 		/* construct command line */
 		if(!(rend_argv = malloc((argc + 5) * sizeof *argv))) {
 			perror("failed to allocate argument vector");
@@ -112,17 +158,25 @@ int spawn_renderer(int argc, char **argv)
 		execvp("erebus", rend_argv);
 		perror("failed to execute erebus");
 		msg = -1;
-		write(pfd[1], &msg, sizeof msg);
+		write(errpipe[1], &msg, sizeof msg);
 		_exit(1);
 	}
 
-	close(pfd[1]);
-	if(read(pfd[0], &msg, sizeof msg) > 0) {
+	close(errpipe[1]);
+	if(read(errpipe[0], &msg, sizeof msg) > 0) {
 		/* child wrote an error code, exec failed */
 		wait(0);
 		return -1;
 	}
+	close(errpipe[0]);
+
+	/* replace stdin with read end of the pipe */
+	close(0);
+	dup(pfd[0]);
 	close(pfd[0]);
+	close(pfd[1]);
+	/* make it non-blocking since we're waiting on select */
+	fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
 
 	/* map shared memory to get framebuffer size */
 	if(shmfb_create(shmpath, width, height) == -1) {
@@ -143,13 +197,11 @@ int init(void)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
-	glEnable(GL_TEXTURE_2D);
 
 	if(!(sdr = create_program_load("sdr/vertex.glsl", "sdr/pixel.glsl"))) {
 		return -1;
 	}
 	set_uniform_float(sdr, "inv_gamma", 1.0f / 2.2f);
-	bind_program(sdr);
 
 	return 0;
 }
@@ -173,10 +225,9 @@ void updatefb(void)
 
 void display(void)
 {
-	int rendering, progr;
+	int progr;
 
 	progr = shmfb_progress();
-	rendering = shmfb_rendering();
 
 	updatefb();
 
@@ -187,6 +238,8 @@ void display(void)
 
 	glPushMatrix();
 	glTranslatef(0, STATUSBAR_HEIGHT, 0);
+
+	bind_program(sdr);
 
 	glBegin(GL_QUADS);
 	glColor3f(1, 1, 1);
@@ -200,10 +253,15 @@ void display(void)
 	glVertex2f(0, height);
 	glEnd();
 
+	bind_program(0);
+
 	glPopMatrix();
 
-	glColor3f(0.1, 0.3, 1.0);
-	glRecti(0, 0, progr / 1024 * width, STATUSBAR_HEIGHT);
+	glColor3f(0.1, 0.2, 0.6);
+	glRecti(0, 0, progr * width / 1024, STATUSBAR_HEIGHT);
+
+	glColor3f(1, 1, 1);
+	glprintf(10, 10, st_text[st_pg]);
 
 	glutSwapBuffers();
 	assert(glGetError() == GL_NO_ERROR);
@@ -262,4 +320,24 @@ int parse_args(int argc, char **argv)
 	}
 
 	return 0;
+}
+
+void glprintf(int x, int y, const char *fmt, ...)
+{
+	va_list ap;
+	char buf[256];
+
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
+
+	glRasterPos2i(x, y);
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof buf, fmt, ap);
+	va_end(ap);
+
+	glutBitmapString(GLUT_BITMAP_HELVETICA_18, buf);
+
+	glPopMatrix();
 }

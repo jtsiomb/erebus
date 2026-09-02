@@ -1,4 +1,4 @@
-obj = treestor.o text.o dynarr.o
+obj = treestor.o text.o bin.o dynarr.o
 lib = libtreestore.a
 
 CFLAGS = -O2

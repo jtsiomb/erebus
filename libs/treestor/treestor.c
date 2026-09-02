@@ -1,6 +1,6 @@
 /*
 libtreestore - a library for reading/writing hierarchical data as text or binary
-Copyright (C) 2016-2023 John Tsiombikas <nuclear@mutantstargoat.com>
+Copyright (C) 2016-2026 John Tsiombikas <nuclear@mutantstargoat.com>
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -40,8 +40,8 @@ OF SUCH DAMAGE.
 struct ts_node *ts_text_load(struct ts_io *io);
 int ts_text_save(struct ts_node *tree, struct ts_io *io);
 
-/*struct ts_node *ts_bin_load(struct ts_io *io);
-int ts_bin_save(struct ts_node *tree, struct ts_io *io);*/
+struct ts_node *ts_bin_load(struct ts_io *io);
+int ts_bin_save(struct ts_node *tree, struct ts_io *io);
 
 static long io_read(void *buf, size_t bytes, void *uptr);
 static long io_write(const void *buf, size_t bytes, void *uptr);
@@ -264,6 +264,7 @@ int ts_set_valuei_arr(struct ts_value *tsv, int count, const int *arr)
 
 	if(!(tsv->array = malloc(count * sizeof *tsv->array))) {
 		free(tsv->vec);
+		return -1;
 	}
 	tsv->array_size = count;
 
@@ -339,6 +340,7 @@ int ts_set_valuef_arr(struct ts_value *tsv, int count, const float *arr)
 
 	if(!(tsv->array = malloc(count * sizeof *tsv->array))) {
 		free(tsv->vec);
+		return -1;
 	}
 	tsv->array_size = count;
 
@@ -385,9 +387,11 @@ int ts_set_valuef(struct ts_value *tsv, float fnum)
 	return ts_set_valuef_arr(tsv, 1, &fnum);
 }
 
+int ts_value_array_to_vec(struct ts_value *tsv);
+
 int ts_set_value_arr(struct ts_value *tsv, int count, const struct ts_value *arr)
 {
-	int i, allnum = 1;
+	int i;
 
 	if(count <= 1) return -1;
 
@@ -397,9 +401,6 @@ int ts_set_value_arr(struct ts_value *tsv, int count, const struct ts_value *arr
 	tsv->array_size = count;
 
 	for(i=0; i<count; i++) {
-		if(arr[i].type != TS_NUMBER) {
-			allnum = 0;
-		}
 		if(ts_copy_value(tsv->array + i, (struct ts_value*)arr + i) == -1) {
 			while(--i >= 0) {
 				ts_destroy_value(tsv->array + i);
@@ -410,19 +411,29 @@ int ts_set_value_arr(struct ts_value *tsv, int count, const struct ts_value *arr
 		}
 	}
 
-	if(allnum) {
-		if(!(tsv->vec = malloc(count * sizeof *tsv->vec))) {
-			ts_destroy_value(tsv);
+	tsv->type = TS_ARRAY;
+	ts_value_array_to_vec(tsv);		/* convert to vector if possible (all numbers) */
+	return 0;
+}
+
+int ts_value_array_to_vec(struct ts_value *tsv)
+{
+	int i;
+
+	for(i=0; i<tsv->array_size; i++) {
+		if(tsv->array[i].type != TS_NUMBER) {
 			return -1;
 		}
-		tsv->type = TS_VECTOR;
-		tsv->vec_size = count;
+	}
 
-		for(i=0; i<count; i++) {
-			tsv->vec[i] = tsv->array[i].fnum;
-		}
-	} else {
-		tsv->type = TS_ARRAY;
+	if(!(tsv->vec = malloc(tsv->array_size * sizeof *tsv->vec))) {
+		return -1;
+	}
+	tsv->type = TS_VECTOR;
+	tsv->vec_size = tsv->array_size;
+
+	for(i=0; i<tsv->array_size; i++) {
+		tsv->vec[i] = tsv->array[i].fnum;
 	}
 	return 0;
 }
@@ -730,10 +741,10 @@ struct ts_node *ts_load_file(FILE *fp)
 
 struct ts_node *ts_load_io(struct ts_io *io)
 {
-	/*struct ts_node *n;
+	struct ts_node *n;
 	if((n = ts_bin_load(io))) {
 		return n;
-	}*/
+	}
 	return ts_text_load(io);
 }
 
@@ -762,9 +773,9 @@ int ts_save_file(struct ts_node *tree, FILE *fp)
 
 int ts_save_io(struct ts_node *tree, struct ts_io *io)
 {
-	/*if(savemode == TS_BIN) {
+	if(savemode == TS_BIN) {
 		return ts_bin_save(tree, io);
-	}*/
+	}
 	return ts_text_save(tree, io);
 }
 
