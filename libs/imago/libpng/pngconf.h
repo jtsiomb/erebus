@@ -34,7 +34,7 @@
  * expects conformant implementations, however, an ISOC90 conformant system need
  * not provide these header files if the functionality cannot be implemented.
  * In this case it will be necessary to disable the relevant parts of libpng in
- * the build of pnglibconf.h.
+ * the build of pnglconf.h.
  *
  * Prior to 1.6.0 string.h was included here; the API changes in 1.6.0 to not
  * include this unnecessary header file.
@@ -129,7 +129,7 @@
  * (x86 DOS/Windows systems) and, even then, this does not apply to
  * Cygwin running on those systems.
  *
- * Note that the value must be defined in pnglibconf.h so that what
+ * Note that the value must be defined in pnglconf.h so that what
  * the application uses to call the library matches the conventions
  * set when building the library.
  */

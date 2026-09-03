@@ -5,6 +5,8 @@
 #include "erebus.h"
 #include "tinymt32.h"
 #include "shmfb.h"
+#include "util.h"
+
 
 struct tile {
 	int x, y, width, height;
@@ -36,7 +38,7 @@ static float fresnel(float costheta, float ior);
 static float mtlattr_num(struct material *mtl, int attr, cgm_vec2 *uv);
 static void mtlattr_vec(cgm_vec3 *res, struct material *mtl, int attr, cgm_vec2 *uv);
 
-static __thread struct tile *curtile;
+static struct tile *curtile;
 
 int fbsize(int width, int height)
 {
@@ -247,12 +249,12 @@ static void bgcolor(cgm_vec3 *color, cgm_ray *ray, int max_iter)
 #endif
 }
 
-static inline float frand(void)
+static INLINE float frand(void)
 {
 	return tinymt32_generate_float(&curtile->rndstate);
 }
 
-static inline void sphrand(cgm_vec3 *pt, float rad)
+static INLINE void sphrand(cgm_vec3 *pt, float rad)
 {
 	float u, v, theta, phi;
 

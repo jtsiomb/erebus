@@ -6,10 +6,13 @@ src = $(libsrc) $(png) $(zlib) $(jpeg)
 obj = $(src:.c=.o)
 lib = libimago.a
 
-CFLAGS = -O2 -D_LARGEFILE64_SOURCE -Ijpeglib
+CFLAGS = -O2 -D_LARGEFILE64_SOURCE -DZLIB_INSECURE -Ijpeglib -Ilibpng -Izlib
 
 $(lib): $(obj)
 	$(AR) rcs $@ $(obj)
+
+.c.o:
+	$(CC) -o $@ -c $< $(CFLAGS)
 
 .PHONY: clean
 clean:

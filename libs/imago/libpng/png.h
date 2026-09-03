@@ -322,10 +322,10 @@
  * the library has been built.
  */
 #ifndef PNGLCONF_H
-/* If pnglibconf.h is missing, you can
- * copy scripts/pnglibconf.h.prebuilt to pnglibconf.h
+/* If pnglconf.h is missing, you can
+ * copy scripts/pnglconf.h.prebuilt to pnglconf.h
  */
-#   include "pnglibconf.h"
+#   include "pnglconf.h"
 #endif
 
 #ifndef PNG_VERSION_INFO_ONLY
@@ -347,7 +347,7 @@
  * StringFileInfo block must contain a SpecialBuild string.
  */
 
-#ifdef PNG_USER_PRIVATEBUILD /* From pnglibconf.h */
+#ifdef PNG_USER_PRIVATEBUILD /* From pnglconf.h */
 #  define PNG_LIBPNG_BUILD_TYPE \
        (PNG_LIBPNG_BUILD_BASE_TYPE | PNG_LIBPNG_BUILD_PRIVATE)
 #else
@@ -375,7 +375,7 @@ extern "C" {
  *
  * 1. [omitted]
  * 2. Any configuration options that can be specified by for the application
- *    code when it is built.  (Build time configuration is in pnglibconf.h)
+ *    code when it is built.  (Build time configuration is in pnglconf.h)
  * 3. Type definitions (base types are defined in pngconf.h), structure
  *    definitions.
  * 4. Exported library functions.
@@ -389,11 +389,11 @@ extern "C" {
 /* Section 1: [omitted] */
 
 /* Section 2: run time configuration
- * See pnglibconf.h for build time configuration
+ * See pnglconf.h for build time configuration
  *
  * Run time configuration allows the application to choose between
  * implementations of certain arithmetic APIs.  The default is set
- * at build time and recorded in pnglibconf.h, but it is safe to
+ * at build time and recorded in pnglconf.h, but it is safe to
  * override these (and only these) settings.  Note that this won't
  * change what the library does, only application code, and the
  * settings can (and probably should) be made on a per-file basis
@@ -839,7 +839,7 @@ typedef PNG_CALLBACK(int, *png_user_chunk_ptr,
  * system level call.
  *
  * If you get a warning here while building the library you may need to make
- * changes to ensure that pnglibconf.h records the calling convention used by
+ * changes to ensure that pnglconf.h records the calling convention used by
  * your compiler.  This may be very difficult - try using a different compiler
  * to build the library!
  */
@@ -2838,7 +2838,7 @@ PNG_EXPORT(207, void, png_save_uint_16,
     ? -((png_int_32)(((png_get_uint_32(buf)^0xffffffffU)+1U)&0x7fffffffU)) \
     : (png_int_32)png_get_uint_32(buf)))
 
-/* If PNG_PREFIX is defined the same thing as below happens in pnglibconf.h,
+/* If PNG_PREFIX is defined the same thing as below happens in pnglconf.h,
  * but defining a macro name prefixed with PNG_PREFIX.
  */
 #  ifndef PNG_PREFIX

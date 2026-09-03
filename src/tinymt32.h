@@ -10,7 +10,7 @@ The 3-clause BSD License
 #ifndef TINYMT32_H_
 #define TINYMT32_H_
 
-#include <stdint.h>
+#include "util.h"
 
 #define TINYMT32_MEXP 127
 #define TINYMT32_SH0 1
@@ -33,7 +33,7 @@ typedef struct tinymt32 {
  * Users should not call this function directly.
  * @param random tinymt internal status
  */
-inline static void tinymt32_next_state(tinymt32_t * random) {
+static INLINE void tinymt32_next_state(tinymt32_t * random) {
 	uint32_t x;
 	uint32_t y;
 
@@ -57,7 +57,7 @@ inline static void tinymt32_next_state(tinymt32_t * random) {
  * @param random tinymt internal status
  * @return 32-bit unsigned pseudorandom number
  */
-inline static uint32_t tinymt32_temper(tinymt32_t * random) {
+static INLINE uint32_t tinymt32_temper(tinymt32_t * random) {
 	uint32_t t0, t1;
 	t0 = random->status[3];
 	t1 = random->status[0]
@@ -72,7 +72,7 @@ inline static uint32_t tinymt32_temper(tinymt32_t * random) {
  * @param random tinymt internal status
  * @return 32-bit unsigned integer r (0 <= r < 2^32)
  */
-inline static uint32_t tinymt32_generate_uint32(tinymt32_t * random) {
+static INLINE uint32_t tinymt32_generate_uint32(tinymt32_t * random) {
 	tinymt32_next_state(random);
 	return tinymt32_temper(random);
 }
@@ -85,7 +85,7 @@ inline static uint32_t tinymt32_generate_uint32(tinymt32_t * random) {
  * @param random tinymt internal status
  * @return floating point number r (0.0 <= r < 1.0)
  */
-inline static float tinymt32_generate_float(tinymt32_t * random) {
+static INLINE float tinymt32_generate_float(tinymt32_t * random) {
 	tinymt32_next_state(random);
 	return tinymt32_temper(random) * TINYMT32_MUL;
 }

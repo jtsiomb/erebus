@@ -6,6 +6,7 @@
 #include "erebus.h"
 #include "treestor.h"
 #include "mesh.h"
+#include "util.h"
 
 static int add_mesh_faces(struct bvhnode *bnode, struct mesh *mesh);
 static void proc_edits(struct ts_node *snode, struct scenefile *sf);
@@ -47,7 +48,8 @@ void calc_node_matrix(struct node *n)
 int load_scene(struct scene *scn, const char *fname)
 {
 	char *dirname, *ptr;
-	char path[256];
+	char *path = 0;
+	int len, max_path_len = 0;
 	struct ts_node *root, *node;
 	struct scenefile sf;
 	struct mesh *mesh, *tail;
@@ -99,7 +101,19 @@ int load_scene(struct scene *scn, const char *fname)
 				fprintf(stderr, "load_scene: ignoring \"scene\" without a \"file\" attribute\n");
 				goto cont;
 			}
-			snprintf(path, sizeof path, "%s%s", dirname, fname);
+
+			if((len = strlen(dirname) + strlen(fname)) > max_path_len) {
+				char *tmp = realloc(path, len + 1);
+				if(!tmp) {
+					fprintf(stderr, "load_scene: failed to allocate path buffer\n");
+					free(path);
+					ts_free_tree(root);
+					return -1;
+				}
+				path = tmp;
+				max_path_len = len;
+			}
+			sprintf(path, "%s%s", dirname, fname);
 			printf("loading scene file: %s\n", path);
 
 			if(load_scenefile(&sf, path) == -1) {

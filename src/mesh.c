@@ -3,6 +3,8 @@
 #include <ctype.h>
 #include "cgmath/cgmath.h"
 #include "mesh.h"
+#include "util.h"
+
 
 struct facevertex {
 	int vidx, tidx, nidx;
@@ -52,7 +54,7 @@ int load_scenefile(struct scenefile *scn, const char *fname)
 	int numfv;
 	struct mesh *mesh;
 	struct triangle *tri;
-	static const cgm_vec2 def_tc = {0, 0};
+	static cgm_vec2 def_tc = {0, 0};
 	struct objmtl curmtl, *mtl, *mtllist = 0;
 	char *sep;
 

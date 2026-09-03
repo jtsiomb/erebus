@@ -149,12 +149,11 @@ fail:
 #define MAKE_NUMSTR_FUNC(type, fmt) \
 	static char *make_##type##str(type x) \
 	{ \
-		static char scrap[128]; \
+		int len; \
 		char *str; \
-		int sz = snprintf(scrap, sizeof scrap, fmt, x); \
-		if(!(str = malloc(sz + 1))) return 0; \
-		sprintf(str, fmt, x); \
-		return str; \
+		if(!(str = malloc(128))) return 0; \
+		len = sprintf(str, fmt, x); \
+		return realloc(str, len + 1); \
 	}
 
 MAKE_NUMSTR_FUNC(int, "%d")

@@ -78,7 +78,7 @@
  * are not internal definitions may be required.  This is handled below just
  * before png.h is included, but load the configuration now if it is available.
  */
-#include "pnglibconf.h"
+#include "pnglconf.h"
 
 /* Local renames may change non-exported API functions from png.h */
 #if defined(PNG_PREFIX) && !defined(PNGPREFIX_H)
@@ -451,7 +451,7 @@
  *
  * libpng is built with support for internal limits on image dimensions and
  * memory usage.  These are documented in scripts/pnglibconf.dfa of the
- * source and recorded in the machine generated header file pnglibconf.h.
+ * source and recorded in the machine generated header file pnglconf.h.
  */
 
 /* If you are running on a machine where you cannot allocate more
@@ -1020,12 +1020,12 @@
 #include "pngstruct.h"
 #include "pnginfo.h"
 
-/* Validate the include paths - the include path used to generate pnglibconf.h
- * must match that used in the build, or we must be using pnglibconf.h.prebuilt:
+/* Validate the include paths - the include path used to generate pnglconf.h
+ * must match that used in the build, or we must be using pnglconf.h.prebuilt:
  */
 #if PNG_ZLIB_VERNUM != 0 && PNG_ZLIB_VERNUM != ZLIB_VERNUM
 #  error The include path of <zlib.h> is incorrect
-   /* When pnglibconf.h was built, the copy of zlib.h that it used was not the
+   /* When pnglconf.h was built, the copy of zlib.h that it used was not the
     * same as the one being used here.  Considering how libpng makes decisions
     * to use the zlib API based on the zlib version number, the -I options must
     * match.
