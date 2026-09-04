@@ -132,7 +132,7 @@ int spawn_renderer(int argc, char **argv)
 		close(pfd[1]);
 
 		/* construct command line */
-		if(!(rend_argv = malloc((argc + 5) * sizeof *argv))) {
+		if(!(rend_argv = malloc((argc + 6) * sizeof *argv))) {
 			perror("failed to allocate argument vector");
 			return -1;
 		}
@@ -144,6 +144,7 @@ int spawn_renderer(int argc, char **argv)
 			sprintf(szarg_buf, "%dx%d", width, height);
 			rend_argv[i++] = "-s";
 			rend_argv[i++] = szarg_buf;
+			rend_argv[i++] = "-np";			/* disable stdout progress bar */
 		}
 		rend_argv[i++] = "-shm";
 		rend_argv[i++] = shmpath;

@@ -1,6 +1,10 @@
 #ifndef OPT_H_
 #define OPT_H_
 
+enum {
+	OPT_PROGRESS = 1
+};
+
 struct options {
 	int width, height;
 	int nsamples;
@@ -14,6 +18,7 @@ struct options {
 	int denoise;
 #endif
 
+	unsigned int flags;
 	float gamma;
 };
 

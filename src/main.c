@@ -7,11 +7,15 @@
 #include "imago2.h"
 #include "denoise.h"
 #include "shmfb.h"
+#include "util.h"
 
 void cleanup(void);
 void sighandler(int s);
 
 volatile sig_atomic_t quit;
+
+unsigned int progr_total_tiles;
+ATOMIC_INT progr_done_tiles;
 
 int main(int argc, char **argv)
 {

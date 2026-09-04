@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <float.h>
 #include <assert.h>
@@ -37,6 +38,7 @@ static void primary_ray(cgm_ray *ray, int x, int y, int sample);
 static float fresnel(float costheta, float ior);
 static float mtlattr_num(struct material *mtl, int attr, cgm_vec2 *uv);
 static void mtlattr_vec(cgm_vec3 *res, struct material *mtl, int attr, cgm_vec2 *uv);
+static void print_progress(int p);
 
 static struct tile *curtile;
 
@@ -141,25 +143,49 @@ void set_fov(float fov)
 
 void render(int samplenum)
 {
-	int i;
+	int i, ndone;
 
 	if(zdist == 0.0f) {
 		set_fov(CGM_PI / 4.0f);
 	}
 
-	if(!samplenum && shmfb) {
-		shmfb_start(num_tiles * opt.nsamples);
+	if(!samplenum) {
+		if(shmfb) {
+			shmfb_start(num_tiles * opt.nsamples);
+		} else if(opt.flags & OPT_PROGRESS) {
+			atomic_int_zero(&progr_done_tiles);
+			progr_total_tiles = num_tiles * opt.nsamples;
+		}
 	}
 
 	for(i=0; i<num_tiles; i++) {
 		tiles[i].sample = samplenum;
 		tpool_enqueue(tpool, tiles + i, (tpool_callback)render_tile, 0);
 	}
-	tpool_wait(tpool);
+
+	if(opt.flags & OPT_PROGRESS) {
+		int progr, prev_progr = -1;
+		do {
+			tpool_timedwait(tpool, 500);
+			progr = atomic_int_value(&progr_done_tiles) * 100 / progr_total_tiles;
+			if(progr != prev_progr) {
+				print_progress(progr);
+				prev_progr = progr;
+			}
+		} while(tpool_pending_jobs(tpool));
+
+		if((ndone = atomic_int_value(&progr_done_tiles)) == progr_total_tiles) {
+			progr = ndone * 100 / progr_total_tiles;
+			print_progress(progr);
+			putchar('\n');
+		}
+	} else {
+		tpool_wait(tpool);
+	}
 }
 
 #ifdef USE_OIDN
-static __thread struct {
+static THREAD_LOCAL struct {
 	cgm_vec3 albedo;
 	cgm_vec3 normal;
 	int valid;
@@ -222,6 +248,8 @@ static void render_tile(struct tile *tile)
 
 	if(shmfb) {
 		shmfb_donetile();
+	} else if(opt.flags & OPT_PROGRESS) {
+		atomic_int_inc(&progr_done_tiles);
 	}
 }
 
@@ -442,4 +470,25 @@ static void mtlattr_vec(cgm_vec3 *res, struct material *mtl, int attr, cgm_vec2 
 	} else {
 		*res = mtl->attr[attr].value;
 	}
+}
+
+
+static void print_progress(int p)
+{
+	int i, nbar;
+
+	printf("\r%-3d%% [", p);
+	nbar = p >> 1;
+
+	for(i=0; i<50; i++) {
+		if(i < nbar) {
+			putchar('=');
+		} else if(i == nbar) {
+			putchar('>');
+		} else {
+			putchar(' ');
+		}
+	}
+	putchar(']');
+	fflush(stdout);
 }

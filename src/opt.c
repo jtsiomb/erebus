@@ -15,6 +15,7 @@ struct options opt = {
 #ifdef USE_OIDN
 	1,					/* denoise */
 #endif
+	OPT_PROGRESS,
 	1.0f				/* gamma */
 };
 
@@ -29,6 +30,7 @@ static const char *usage_fmt = "Usage: %s [options] <scene file>\n"
 #ifdef USE_OIDN
 	" -D,-denoise: toggle denoising\n"
 #endif
+	" -p: toggle progress bar\n"
 	" -gamma <N>: gamma exponent for the output image\n"
 	" -h,-help: print usage information and exit\n\n";
 
@@ -71,6 +73,9 @@ int parse_args(int argc, char **argv)
 			} else if(strcmp(argv[i], "-D") == 0 || strcmp(argv[i], "-denoise") == 0) {
 				opt.denoise ^= 1;
 #endif
+			} else if(strcmp(argv[i], "-np") == 0) {
+				opt.flags ^= OPT_PROGRESS;
+
 			} else if(strcmp(argv[i], "-gamma") == 0) {
 				if(!argv[++i] || (opt.gamma = atof(argv[i])) <= 0.0f) {
 					fprintf(stderr, "-gamma must be followed by a gamma value\n");

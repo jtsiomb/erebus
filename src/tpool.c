@@ -319,20 +319,22 @@ static void send_done_event(struct thread_pool *tpool)
 
 long tpool_timedwait(struct thread_pool *tpool, long timeout)
 {
-	struct timespec tout_ts;
+	struct timespec ts;
 	struct timeval tv0, tv;
-	long sec;
 
 	gettimeofday(&tv0, 0);
 
-	sec = timeout / 1000;
-	tout_ts.tv_nsec = tv0.tv_usec * 1000 + (timeout % 1000) * 1000000;
-	tout_ts.tv_sec = tv0.tv_sec + sec;
+	ts.tv_nsec = tv0.tv_usec * 1000 + (timeout % 1000) * 1000000;
+	ts.tv_sec = tv0.tv_sec + timeout / 1000;
+
+	/* make sure nsec is never more than 1s */
+	ts.tv_sec += ts.tv_nsec / 1000000000L;
+	ts.tv_nsec %= 1000000000L;
 
 	pthread_mutex_lock(&tpool->workq_mutex);
 	while(tpool->nactive || tpool->qsize) {
 		if(pthread_cond_timedwait(&tpool->done_condvar,
-					&tpool->workq_mutex, &tout_ts) == ETIMEDOUT) {
+					&tpool->workq_mutex, &ts) == ETIMEDOUT) {
 			break;
 		}
 	}
