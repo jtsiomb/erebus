@@ -30,6 +30,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	setvbuf(stdout, 0, _IOLBF, 0);
 	signal(SIGINT, sighandler);
 
 	if(opt.shm) {
@@ -60,6 +61,19 @@ int main(int argc, char **argv)
 		cgm_mtranslation(view_xform, 0, 1.6, 0);
 	}
 
+	switch(opt.renderer) {
+	case OPT_RAY_TRACER:
+		rend = rt_renderer;
+		break;
+
+	case OPT_DEF_RENDERER:
+	case OPT_PATH_TRACER:
+		rend = pt_renderer;
+		break;
+	}
+	printf("Renderer: %s\n", rend.name);
+
+	printf("rendering %dx%d %d spp\n", opt.width, opt.height, opt.nsamples);
 	start_time = get_msec();
 
 	for(i=0; i<opt.nsamples; i++) {
@@ -67,9 +81,6 @@ int main(int argc, char **argv)
 		render(i);
 	}
 	if(quit) goto end;
-
-	dur = get_msec() - start_time;
-	printf("Rendering took %.3f sec\n", (float)dur / 1000.0f);
 
 	npixels = fb.width * fb.height;
 	fbptr = fb.pixels;
@@ -91,15 +102,14 @@ int main(int argc, char **argv)
 			alb++;
 			nptr++;
 		}
-	}
-#endif
 
-#ifdef USE_OIDN
-	if(opt.denoise) {
 		printf("denoising\n");
 		denoise((float*)fb.pixels, (float*)fb.normals, (float*)fb.albedo, fb.width, fb.height);
 	}
 #endif
+
+	dur = get_msec() - start_time;
+	printf("Rendering took %.3f sec\n", (float)dur / 1000.0f);
 
 	/* if we're operating on a shared memory framebuffer, all the post-processing
 	 * and final saving of the image will be done by the front-end, so skip it.

@@ -1,6 +1,6 @@
 src = src/bvh.c src/geom.c src/mesh.c src/rt.c src/tpool.c src/denoise.c \
 	src/image.c src/opt.c src/scene.c src/erebus.c src/main.c src/rbtree.c \
-	src/shmfb.c
+	src/shmfb.c src/rtpath.o src/rtstd.o src/tinymt32.o
 
 obj = $(src:.c=.o)
 bin = erebus

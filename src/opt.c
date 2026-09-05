@@ -15,6 +15,7 @@ struct options opt = {
 #ifdef USE_OIDN
 	1,					/* denoise */
 #endif
+	OPT_DEF_RENDERER,
 	OPT_PROGRESS,
 	1.0f				/* gamma */
 };
@@ -30,7 +31,8 @@ static const char *usage_fmt = "Usage: %s [options] <scene file>\n"
 #ifdef USE_OIDN
 	" -D,-denoise: toggle denoising\n"
 #endif
-	" -p: toggle progress bar\n"
+	" -R,-renderer <renderer>: select renderer (rt, path)\n"
+	" -np: disable progress bar\n"
 	" -gamma <N>: gamma exponent for the output image\n"
 	" -h,-help: print usage information and exit\n\n";
 
@@ -73,6 +75,15 @@ int parse_args(int argc, char **argv)
 			} else if(strcmp(argv[i], "-D") == 0 || strcmp(argv[i], "-denoise") == 0) {
 				opt.denoise ^= 1;
 #endif
+			} else if(strcmp(argv[i], "-R") == 0 || strcmp(argv[i], "-renderer") == 0) {
+				enum opt_renderer rsel;
+				if(!argv[++i] || ((rsel = OPT_RAY_TRACER, strcmp(argv[i], "rt") != 0) &&
+						(rsel = OPT_PATH_TRACER, strcmp(argv[i], "path") != 0))) {
+					fprintf(stderr, "%s must be followed by the renderer (rt, path)\n", argv[i - 1]);
+					return -1;
+				}
+				opt.renderer = rsel;
+
 			} else if(strcmp(argv[i], "-np") == 0) {
 				opt.flags ^= OPT_PROGRESS;
 

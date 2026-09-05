@@ -258,7 +258,7 @@ void display(void)
 
 	glPopMatrix();
 
-	glColor3f(0.1, 0.2, 0.6);
+	glColor3f(0.1, 0.2, 0.5);
 	glRecti(0, 0, progr * width / 1024, STATUSBAR_HEIGHT);
 
 	glColor3f(1, 1, 1);
