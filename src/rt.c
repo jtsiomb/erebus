@@ -18,6 +18,10 @@ struct renderer rend;
 static struct tile *tiles;
 static int num_tiles;
 
+THREAD_LOCAL struct tile *curtile;
+THREAD_LOCAL struct path_aux_data auxdata;
+
+static void render_tile(struct tile *tile);
 static void print_progress(int p, int sample);
 
 
@@ -138,7 +142,7 @@ void render(int samplenum)
 
 	for(i=0; i<num_tiles; i++) {
 		tiles[i].sample = samplenum;
-		tpool_enqueue(tpool, tiles + i, (tpool_callback)rend.render_tile, 0);
+		tpool_enqueue(tpool, tiles + i, (tpool_callback)render_tile, 0);
 	}
 
 	if(opt.flags & OPT_PROGRESS) {
@@ -162,6 +166,80 @@ void render(int samplenum)
 	}
 }
 
+static void render_tile(struct tile *tile)
+{
+	int i, j;
+	cgm_ray ray;
+	cgm_vec3 col;
+	cgm_vec4 *fbptr = tile->fbptr;
+#ifdef USE_OIDN
+	cgm_vec3 *nptr = tile->nptr;
+	cgm_vec3 *alb = tile->albptr;
+#endif
+
+	curtile = tile;
+
+	for(i=0; i<tile->height; i++) {
+		for(j=0; j<tile->width; j++) {
+			if(quit) return;
+#ifdef USE_OIDN
+			auxdata.valid = 0;
+#endif
+			primary_ray(&ray, tile->x + j, tile->y + i, tile->sample);
+			if(tile->sample) {
+				ray_trace(&col, &ray, 1.0f, opt.max_iter);
+				fbptr[j].x += col.x;
+				fbptr[j].y += col.y;
+				fbptr[j].z += col.z;
+				fbptr[j].w++;
+#ifdef USE_OIDN
+				if(opt.denoise) {
+					nptr[j].x += auxdata.normal.x;
+					nptr[j].y += auxdata.normal.y;
+					nptr[j].z += auxdata.normal.z;
+					alb[j].x += auxdata.albedo.x;
+					alb[j].y += auxdata.albedo.y;
+					alb[j].z += auxdata.albedo.z;
+				}
+#endif
+			} else {
+				ray_trace((cgm_vec3*)(fbptr + j), &ray, 1.0f, opt.max_iter);
+				fbptr[j].w = 1;
+#ifdef USE_OIDN
+				if(opt.denoise) {
+					nptr[j] = auxdata.normal;
+					alb[j] = auxdata.albedo;
+				}
+#endif
+			}
+		}
+		fbptr += fb.width;
+#ifdef USE_OIDN
+		nptr += fb.width;
+		alb += fb.width;
+#endif
+	}
+
+	if(shmfb) {
+		shmfb_donetile();
+	} else if(opt.flags & OPT_PROGRESS) {
+		atomic_int_inc(&progr_done_tiles);
+	}
+}
+
+void primary_ray(cgm_ray *ray, int x, int y, int sample)
+{
+	float fx = x + frand() - 0.5f;
+	float fy = y + frand() - 0.5f;
+
+	ray->origin.x = ray->origin.y = ray->origin.z = 0.0f;
+	ray->dir.x = (2.0f * fx / (float)fb.width - 1.0f) * fb.aspect;
+	ray->dir.y = 1.0f - 2.0f * fy / (float)fb.height;
+	ray->dir.z = -zdist;
+	cgm_vnormalize(&ray->dir);
+
+	cgm_rmul_mr(ray, view_xform);
+}
 
 void ray_trace(cgm_vec3 *color, cgm_ray *ray, float energy, int max_iter)
 {
@@ -172,6 +250,20 @@ void ray_trace(cgm_vec3 *color, cgm_ray *ray, float energy, int max_iter)
 	} else {
 		rend.bgcolor(color, ray);
 	}
+}
+
+
+void bgcolor(cgm_vec3 *color, cgm_ray *ray)
+{
+	*color = scn.bgcolor;
+#ifdef USE_OIDN
+	if(!auxdata.valid) {
+		auxdata.normal = ray->dir;
+		cgm_vneg(&auxdata.normal);
+		auxdata.albedo = *color;
+		auxdata.valid = 1;
+	}
+#endif
 }
 
 float fresnel(float costheta, float ior)

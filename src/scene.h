@@ -23,6 +23,7 @@ struct camera {
 };
 
 struct scene {
+	cgm_vec3 ambient;
 	cgm_vec3 bgcolor;
 
 	struct bvhnode *st_root;

@@ -340,12 +340,16 @@ static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlpr
 
 	if(strcmp(mtlprop, "color") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_COLOR].value.x, opval, 3);
+	} else if(strcmp(mtlprop, "specular") == 0) {
+		mtlop_vec(op, &mtl->attr[MATTR_SPECULAR].value.x, opval, 3);
 	} else if(strcmp(mtlprop, "emit") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_EMIT].value.x, opval, 3);
 	} else if(strcmp(mtlprop, "roughness") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_ROUGHNESS].value.x, opval, 1);
 	} else if(strcmp(mtlprop, "ior") == 0) {
 		mtlop_vec(op, &mtl->ior, opval, 1);
+	} else if(strcmp(mtlprop, "reflect") == 0) {
+		mtlop_vec(op, &mtl->attr[MATTR_REFLECT].value.x, opval, 1);
 	} else if(strcmp(mtlprop, "transmit") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_TRANSMIT].value.x, opval, 1);
 	} else if(strcmp(mtlprop, "metal") == 0) {

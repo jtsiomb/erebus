@@ -10,13 +10,21 @@ struct facevertex {
 	int vidx, tidx, nidx;
 };
 
+enum {
+	MTL_ROUGHNESS = 1,
+	MTL_METALLIC = 2
+};
+
 struct objmtl {
 	char *name;
 	cgm_vec3 ka, kd, ks, ke;
 	float shin;
+	float refl;
 	float alpha;
 	float ior;
+	float roughness, metallic;
 	char *map_kd, *map_ke, *map_alpha;
+	unsigned int valid;
 	struct objmtl *next;
 };
 
@@ -360,6 +368,18 @@ static struct objmtl *load_mtllib(const char *path_prefix, const char *mtlfname)
 			if(m) m->ior = atof(line + 3);
 		} else if(line[0] == 'd' && isspace(line[1])) {
 			if(m) m->alpha = atof(line + 2);
+		} else if(memcmp(line, "refl", 4) == 0) {
+			if(m) m->refl = atof(line + 5);
+		} else if(memcmp(line, "Pr", 2) == 0) {
+			if(m) {
+				m->roughness = atof(line + 3);
+				m->valid |= MTL_ROUGHNESS;
+			}
+		} else if(memcmp(line, "Pm", 2) == 0) {
+			if(m) {
+				m->metallic = atof(line + 3);
+				m->valid |= MTL_METALLIC;
+			}
 		} else if(memcmp(line, "map_Kd", 6) == 0) {
 			if(m && (line = cleanline(line + 6))) {
 				m->map_kd = strdup(line);
@@ -401,8 +421,16 @@ static void conv_mtl(struct material *mm, struct objmtl *om, const char *path_pr
 	memset(mm, 0, sizeof *mm);
 	mm->name = strdup(om->name);
 	mm->attr[MATTR_COLOR].value = om->kd;
+	mm->attr[MATTR_SPECULAR].value = om->ks;
+	mm->attr[MATTR_SHININESS].value.x = om->shin;
 	mm->attr[MATTR_EMIT].value = om->ke;
-	mm->attr[MATTR_ROUGHNESS].value.x = 1.0f - (om->ks.x + om->ks.y + om->ks.z) / 3.0f;
+	if(om->valid & MTL_ROUGHNESS) {
+		mm->attr[MATTR_ROUGHNESS].value.x = om->roughness;
+	} else {
+		mm->attr[MATTR_ROUGHNESS].value.x = 1.0f - (om->ks.x + om->ks.y + om->ks.z) / 3.0f;
+	}
+	mm->attr[MATTR_METALLIC].value.x = om->metallic;
+	mm->attr[MATTR_REFLECT].value.x = om->refl;
 	mm->attr[MATTR_TRANSMIT].value.x = 1.0f - om->alpha;
 	mm->metal = 0;
 
