@@ -35,15 +35,22 @@ static void lambert_sample(cgm_vec3 *dir, struct rayhit *hit)
 static void phong_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir,
 		struct rayhit *hit)
 {
-	cgm_vec3 v;
-	cgm_vec3 kd, ks, ke;
-	float shin;
-	struct material *mtl = hit->mtl;
+	cgm_vec3 hdir;
+	float shin, ndoth;
 
-	mtlattr_vec(&kd, hit->mtl, MATTR_COLOR, &hit->v.tex);
-	mtlattr_vec(&ks, hit->mtl, MATTR_SPECULAR, &hit->v.tex);
+	mtlattr_vec(color, hit->mtl, MATTR_SPECULAR, &hit->v.tex);
+	shin = mtlattr_num(hit->mtl, MATTR_SHININESS, &hit->v.tex);
 
-	mtlattr_vec(color, hit->mtl, MATTR_EMIT, &hit->v.tex);
+	hdir = vdir;
+	cgm_vadd(&hdir, &ldir);
+	cgm_vnormalize(&hdir);
+
+	if((ndoth = cgm_vdot(&n, &hdir)) < 0.0f) {
+		cgm_vcons(color, 0, 0, 0);
+		return;
+	}
+
+	cgm_vscale(color, pow(ndoth, shin));
 }
 
 static void phong_sample(cgm_vec3 *dir, struct rayhit *hit)

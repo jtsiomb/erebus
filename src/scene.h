@@ -22,6 +22,14 @@ struct camera {
 	struct camera *next;
 };
 
+struct light {
+	cgm_vec3 pos;
+	float rad;
+	cgm_vec3 color;
+
+	struct light *next;
+};
+
 struct scene {
 	cgm_vec3 ambient;
 	cgm_vec3 bgcolor;
@@ -31,6 +39,7 @@ struct scene {
 
 	struct mesh *meshlist;
 	struct camera *camlist;
+	struct light *lightlist;
 };
 
 void init_scene_node(struct node *n);

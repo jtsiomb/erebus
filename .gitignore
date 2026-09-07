@@ -17,6 +17,8 @@ erebus-gui
 *.json
 cfg.mk
 RUN
+PT
+RT
 core.*
 *.ppm
 oidn.h

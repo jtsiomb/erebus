@@ -26,7 +26,6 @@ void pt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 	cgm_ray ray;
 	struct material *mtl = hit->mtl;
 
-
 	if(cgm_vdot(&hit->ray.dir, &hit->v.norm) > 0.0f) {
 		cgm_vneg(&hit->v.norm);
 	}

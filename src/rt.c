@@ -249,6 +249,7 @@ void ray_trace(cgm_vec3 *color, cgm_ray *ray, float energy, int max_iter)
 		rend.shade(color, &hit, energy, max_iter);
 	} else {
 		rend.bgcolor(color, ray);
+		cgm_vscale(color, energy);
 	}
 }
 

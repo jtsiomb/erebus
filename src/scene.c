@@ -88,9 +88,10 @@ int load_scene(struct scene *scn, const char *fname)
 
 	/* lookup environment properties */
 	if((vec = ts_lookup_vec(root, "erebus.env.color", 0))) {
-		scn->bgcolor.x = vec[0];
-		scn->bgcolor.y = vec[1];
-		scn->bgcolor.z = vec[2];
+		cgm_vcons(&scn->bgcolor, vec[0], vec[1], vec[2]);
+	}
+	if((vec = ts_lookup_vec(root, "erebus.env.ambient", 0))) {
+		cgm_vcons(&scn->ambient, vec[0], vec[1], vec[2]);
 	}
 
 	/* load scene files */
@@ -158,6 +159,30 @@ int load_scene(struct scene *scn, const char *fname)
 
 			cam->next = scn->camlist;
 			scn->camlist = cam;
+
+		} else if(strcmp(node->name, "light") == 0) {
+			struct light *lt;
+
+			if(!(lt = calloc(1, sizeof *lt))) {
+				fprintf(stderr, "failed to allocate light structure\n");
+				return -1;
+			}
+
+			if((vec = ts_get_attr_vec(node, "position", 0))) {
+				cgm_vcons(&lt->pos, vec[0], vec[1], vec[2]);
+			}
+			if((vec = ts_get_attr_vec(node, "color", 0))) {
+				cgm_vcons(&lt->color, vec[0], vec[1], vec[2]);
+			} else {
+				cgm_vcons(&lt->color, 1, 1, 1);
+			}
+			lt->rad = fabs(ts_get_attr_num(node, "radius", 0.0f));
+			if((num = ts_get_attr_num(node, "energy", -1.0f)) >= 0.0f) {
+				cgm_vscale(&lt->color, num);
+			}
+
+			lt->next = scn->lightlist;
+			scn->lightlist = lt;
 		}
 cont:	node = node->next;
 	}

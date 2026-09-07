@@ -357,6 +357,7 @@ static struct objmtl *load_mtllib(const char *path_prefix, const char *mtlfname)
 				if((line = cleanline(line + 6))) {
 					m->name = strdup(line);
 				}
+				m->shin = 25.0f;
 			}
 		} else if(memcmp(line, "Kd", 2) == 0) {
 			if(m) sscanf(line + 3, "%f %f %f", &m->kd.x, &m->kd.y, &m->kd.z);
@@ -364,12 +365,14 @@ static struct objmtl *load_mtllib(const char *path_prefix, const char *mtlfname)
 			if(m) sscanf(line + 3, "%f %f %f", &m->ks.x, &m->ks.y, &m->ks.z);
 		} else if(memcmp(line, "Ke", 2) == 0) {
 			if(m) sscanf(line + 3, "%f %f %f", &m->ke.x, &m->ke.y, &m->ke.z);
+		} else if(memcmp(line, "Ns", 2) == 0) {
+			if(m) m->shin = atof(line + 3) / 1000.0f * 127.0f;
 		} else if(memcmp(line, "Ni", 2) == 0) {
 			if(m) m->ior = atof(line + 3);
 		} else if(line[0] == 'd' && isspace(line[1])) {
 			if(m) m->alpha = atof(line + 2);
-		} else if(memcmp(line, "refl", 4) == 0) {
-			if(m) m->refl = atof(line + 5);
+		} else if(memcmp(line, "Ka", 2) == 0) {
+			if(m) m->refl = atof(line + 3);
 		} else if(memcmp(line, "Pr", 2) == 0) {
 			if(m) {
 				m->roughness = atof(line + 3);
@@ -432,7 +435,7 @@ static void conv_mtl(struct material *mm, struct objmtl *om, const char *path_pr
 	mm->attr[MATTR_METALLIC].value.x = om->metallic;
 	mm->attr[MATTR_REFLECT].value.x = om->refl;
 	mm->attr[MATTR_TRANSMIT].value.x = 1.0f - om->alpha;
-	mm->metal = 0;
+	mm->metal = om->metallic > 0.001;
 
 	if(om->map_kd && (len = strlen(om->map_kd)) > maxlen) maxlen = len;
 	if(om->map_ke && (len = strlen(om->map_ke)) > maxlen) maxlen = len;
