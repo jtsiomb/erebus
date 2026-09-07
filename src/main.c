@@ -29,6 +29,10 @@ int main(int argc, char **argv)
 	if(parse_args(argc, argv) == -1) {
 		return 1;
 	}
+	if(!opt.infile) {
+		fprintf(stderr, "render what?\n");
+		return 1;
+	}
 
 	setvbuf(stdout, 0, _IOLBF, 0);
 	signal(SIGINT, sighandler);
@@ -50,7 +54,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	if(load_scene(&scn, opt.infile ? opt.infile : "scenes/simple.erebus") == -1) {
+	if(load_scene(&scn, opt.infile) == -1) {
 		return 1;
 	}
 
