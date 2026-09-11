@@ -5,13 +5,14 @@ obj = $(src:.c=.o)
 dep = $(src:.c=.d)
 bin = erebus
 
-alibs = libs/treestor/libtreestore.a libs/imago/libimago.a
+alibs = libs/treestor/libtreestore.a libs/imago/libimago.a \
+		libs/meshfile/libmeshfile.a
 
 opt = -O3 -ffast-math -fno-strict-aliasing
 dbg = -g
 warn = -pedantic -Wall
 
-inc = -Ilibs -Ilibs/treestor -Ilibs/imago/src
+inc = -Ilibs -Ilibs/treestor -Ilibs/imago/src -Ilibs/meshfile/src
 
 CFLAGS = -std=gnu89 $(warn) $(opt) $(dbg) $(inc) $(def) -MMD
 LDFLAGS = $(alibs) -lm
@@ -39,10 +40,10 @@ cleandep:
 
 # --- rules for the bundled libraries ---
 .PHONY: libs
-libs: treestore imago
+libs: treestore imago meshfile
 
 .PHONY: clean-libs
-clean-libs: clean-treestore clean-imago
+clean-libs: clean-treestore clean-imago clean-meshfile
 
 .PHONY: treestore
 treestore:
@@ -59,3 +60,11 @@ imago:
 .PHONY: clean-imago
 clean-imago:
 	$(MAKE) -C libs/imago clean
+
+.PHONY: meshfile
+meshfile:
+	$(MAKE) -C libs/meshfile
+
+.PHONY: clean-meshfile
+clean-meshfile:
+	$(MAKE) -C libs/meshfile clean

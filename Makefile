@@ -5,12 +5,13 @@ src = src/bvh.c src/geom.c src/mesh.c src/rt.c src/tpool.c src/denoise.c \
 obj = $(src:.c=.o)
 bin = erebus
 
-alibs = libs/treestor/libtreestore.a libs/imago/libimago.a
+alibs = libs/treestor/libtreestore.a libs/imago/libimago.a \
+		libs/meshfile/libmeshfile.a
 
 opt = -O2
 dbg = -g3
 
-inc = -Ilibs -Ilibs/treestor -Ilibs/imago/src
+inc = -Ilibs -Ilibs/treestor -Ilibs/imago/src -Ilibs/meshfile/src
 
 CFLAGS = $(opt) $(dbg) $(inc) $(def)
 LDFLAGS = $(alibs) -lm -lpthread
@@ -27,10 +28,10 @@ clean:
 
 # --- rules for the bundled libraries ---
 .PHONY: libs
-libs: treestore imago
+libs: treestore imago meshfile
 
 .PHONY: clean-libs
-clean-libs: clean-treestore clean-imago
+clean-libs: clean-treestore clean-imago clean-meshfile
 
 .PHONY: treestore
 treestore:
@@ -47,3 +48,11 @@ imago:
 .PHONY: clean-imago
 clean-imago:
 	cd libs/imago && $(MAKE) clean
+
+.PHONY: meshfile
+meshfile:
+	cd libs/meshfile && $(MAKE)
+
+.PHONY: clean-meshfile
+clean-meshfile:
+	cd libs/meshfile && $(MAKE) clean

@@ -5,6 +5,8 @@
 #include "geom.h"
 
 struct mesh {
+	char *name;
+
 	struct triangle *faces;
 	int num_faces;
 

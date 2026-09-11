@@ -211,6 +211,10 @@ void destroy_scene(struct scene *scn)
 	}
 }
 
+struct node *find_scn_node(struct scene *scn, const char *name)
+{
+	return 0;	/* TODO */
+}
 
 int ray_scene(cgm_ray *ray, struct scene *scn, float tmax, struct rayhit *hit)
 {
