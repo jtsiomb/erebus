@@ -19,6 +19,9 @@ struct mesh {
 struct scenefile {
 	struct mesh *meshlist;
 	int num_meshes;
+
+	struct light *lightlist;
+	int num_lights;
 };
 
 int load_scenefile(struct scenefile *scn, const char *fname);

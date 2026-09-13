@@ -46,6 +46,8 @@ static void init_aabox(mf_aabox *box);
 static void calc_aabox(struct mf_meshfile *mf);
 static void expand_aabox(mf_aabox *box, mf_vec3 v);
 
+static int conv_indexed(struct mf_mesh *m);
+
 static void *io_open(const char *fname, const char *mode);
 static void io_close(void *file);
 static int io_read(void *file, void *buf, int sz);
@@ -499,10 +501,21 @@ int mf_load_userio(struct mf_meshfile *mf, const struct mf_userio *io, unsigned 
 	mf_update_xform(mf);
 	calc_aabox(mf);
 
+	num_meshes = mf_num_meshes(mf);
+
+	/* construct face array if missing */
+	for(i=0; i<num_meshes; i++) {
+		mesh = mf_get_mesh(mf, i);
+		if(!mesh->faces) {
+			if(conv_indexed(mesh) == -1) {
+				return -1;
+			}
+		}
+	}
+
 	/* do any post-processing after load */
 	if(flags & MF_NOPROC) return 0;
 
-	num_meshes = mf_num_meshes(mf);
 	for(i=0; i<num_meshes; i++) {
 		mesh = mf_get_mesh(mf, i);
 		if(!mesh->normal) {
@@ -1189,6 +1202,27 @@ static void expand_aabox(mf_aabox *box, mf_vec3 v)
 	if(v.x > box->vmax.x) box->vmax.x = v.x;
 	if(v.y > box->vmax.y) box->vmax.y = v.y;
 	if(v.z > box->vmax.z) box->vmax.z = v.z;
+}
+
+static int conv_indexed(struct mf_mesh *m)
+{
+	unsigned int i, nfaces, vidx;
+
+	if(m->faces) return 0;
+
+	nfaces = m->num_verts / 3;
+	if(!(m->faces = malloc(nfaces * sizeof *m->faces))) {
+		return -1;
+	}
+	m->num_faces = nfaces;
+
+	vidx = 0;
+	for(i=0; i<nfaces; i++) {
+		m->faces[i].vidx[0] = vidx++;
+		m->faces[i].vidx[1] = vidx++;
+		m->faces[i].vidx[2] = vidx++;
+	}
+	return 0;
 }
 
 /* file I/O functions */

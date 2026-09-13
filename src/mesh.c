@@ -3,252 +3,86 @@
 #include <ctype.h>
 #include "cgmath/cgmath.h"
 #include "mesh.h"
+#include "scene.h"
 #include "util.h"
+#include "meshfile.h"
 
 
-struct facevertex {
-	int vidx, tidx, nidx;
-};
-
-enum {
-	MTL_ROUGHNESS = 1,
-	MTL_METALLIC = 2
-};
-
-struct objmtl {
-	char *name;
-	cgm_vec3 ka, kd, ks, ke;
-	float shin;
-	float refl;
-	float alpha;
-	float ior;
-	float roughness, metallic;
-	char *map_kd, *map_ke, *map_alpha;
-	unsigned int valid;
-	struct objmtl *next;
-};
-
+static struct mesh *conv_mesh(struct mf_mesh *mfm, const char *path_prefix);
+int conv_mtl(struct material *mtl, struct mf_material *mmtl, const char *path_prefix);
+static struct image *load_texture(const char *fname, const char *path_prefix);
 static void calc_face_normal(struct triangle *tri);
-static char *cleanline(char *s);
-static char *parse_idx(char *ptr, int *idx, int arrsz);
-static char *parse_face_vert(char *ptr, struct facevertex *fv, int numv, int numt, int numn);
-
-static struct objmtl *load_mtllib(const char *path_prefix, const char *mtlfname);
-static void free_mtllist(struct objmtl *mtl);
-static void conv_mtl(struct material *mm, struct objmtl *om, const char *path_prefix);
-
-#define GROW_ARRAY(arr, sz)	\
-	do { \
-		int newsz = (sz) ? (sz) * 2 : 16; \
-		void *tmp = realloc(arr, newsz * sizeof *(arr)); \
-		if(!tmp) { \
-			fprintf(stderr, "failed to grow array to %d\n", newsz); \
-			goto fail; \
-		} \
-		arr = tmp; \
-		sz = newsz; \
-	} while(0)
 
 
 int load_scenefile(struct scenefile *scn, const char *fname)
 {
-	int i, nlines, total_faces = 0, res = -1;
-	FILE *fp;
-	char buf[256], *line, *ptr, *path_prefix;
-	int varr_size, varr_max, narr_size, narr_max, tarr_size, tarr_max, max_faces;
-	cgm_vec3 v, *varr = 0, *narr = 0;
-	cgm_vec2 *tarr = 0;
-	struct facevertex fv[4];
-	int numfv;
+	unsigned int i, count, tricount = 0;
+	struct mf_meshfile *mf;
 	struct mesh *mesh;
-	struct triangle *tri;
-	static cgm_vec2 def_tc = {0, 0};
-	struct objmtl curmtl, *mtl, *mtllist = 0;
-	char *sep;
+	char *path_prefix, *sptr, *endp;
 
+	memset(scn, 0, sizeof *scn);
 
-	varr_size = varr_max = narr_size = narr_max = tarr_size = tarr_max = 0;
-	varr = narr = 0;
-	tarr = 0;
-
-	if(!(fp = fopen(fname, "rb"))) {
-		fprintf(stderr, "load_scenefile: failed to open %s\n", fname);
-		return -1;
+	if(!(mf = mf_alloc()) || mf_load(mf, fname, 0) == -1) {
+		goto err;
 	}
 
-	strcpy(buf, fname);
-	if((sep = strrchr(buf, '/'))) {
-		sep[1] = 0;
-	} else {
-		buf[0] = 0;
-	}
-	path_prefix = alloca(strlen(buf) + 1);
-	strcpy(path_prefix, buf);
-
-	if(!(mesh = calloc(1, sizeof *mesh))) {
-		fprintf(stderr, "failed to allocate mesh\n");
-		fclose(fp);
-		return -1;
-	}
-	max_faces = 0;
-
-	scn->meshlist = 0;
-	scn->num_meshes = 0;
-
-	/* default material: white diffuse */
-	memset(&curmtl, 0, sizeof curmtl);
-	cgm_vcons(&curmtl.kd, 1.0f, 1.0f, 1.0f);
-	curmtl.alpha = curmtl.ior = 1.0f;
-
-	nlines = 0;
-	while(fgets(buf, sizeof buf, fp)) {
-		nlines++;
-		if(!(line = cleanline(buf))) {
-			continue;
-		}
-
-		switch(line[0]) {
-		case 'v':
-			v.x = v.y = v.z = 0.0f;
-			if(sscanf(line + 2, "%f %f %f", &v.x, &v.y, &v.z) < 2) {
-				break;
-			}
-			if(isspace(line[1])) {
-				if(varr_size >= varr_max) {
-					GROW_ARRAY(varr, varr_max);
-				}
-				varr[varr_size++] = v;
-			} else if(line[1] == 't' && isspace(line[2])) {
-				if(tarr_size >= tarr_max) {
-					GROW_ARRAY(tarr, tarr_max);
-				}
-				tarr[tarr_size++] = *(cgm_vec2*)&v;
-			} else if(line[1] == 'n' && isspace(line[2])) {
-				if(narr_size >= narr_max) {
-					GROW_ARRAY(narr, narr_max);
-				}
-				narr[narr_size++] = v;
-			}
-			break;
-
-		case 'f':
-			if(!isspace(line[1])) break;
-
-			ptr = line + 2;
-
-			numfv = 0;
-			for(i=0; i<4; i++) {
-				if(!(ptr = parse_face_vert(ptr, fv + i, varr_size, tarr_size, narr_size))) {
-					break;
-				}
-				numfv++;
-			}
-			if(numfv < 3) break;
-
-			if(mesh->num_faces >= max_faces - 1) {
-				GROW_ARRAY(mesh->faces, max_faces);
-			}
-			tri = mesh->faces + mesh->num_faces++;
-			tri->mtl = &mesh->mtl;
-
-			tri->v[0].pos = varr[fv[0].vidx];
-			tri->v[1].pos = varr[fv[1].vidx];
-			tri->v[2].pos = varr[fv[2].vidx];
-			calc_face_normal(tri);
-			for(i=0; i<3; i++) {
-				tri->v[i].norm = fv[i].nidx >= 0 ? narr[fv[i].nidx] : tri->norm;
-				tri->v[i].tex = fv[i].tidx >= 0 ? tarr[fv[i].tidx] : def_tc;
-			}
-
-			if(numfv > 3) {
-				tri++;
-				mesh->num_faces++;
-				tri->mtl = &mesh->mtl;
-				tri->norm = tri[-1].norm;
-				tri->v[0] = tri[-1].v[0];
-				tri->v[1] = tri[-1].v[1];
-
-				tri->v[2].pos = varr[fv[3].vidx];
-				tri->v[2].norm = fv[3].nidx >= 0 ? narr[fv[3].nidx] : tri->norm;
-				tri->v[2].tex = fv[3].tidx >= 0 ? tarr[fv[3].tidx] : def_tc;
-			}
-			break;
-
-		case 'o':
-		case 'g':
-			if(mesh->num_faces) {
-				conv_mtl(&mesh->mtl, &curmtl, path_prefix);
-				total_faces += mesh->num_faces;
-				mesh->next = scn->meshlist;
-				scn->meshlist = mesh;
-				scn->num_meshes++;
-
-				if(!(mesh = calloc(1, sizeof *mesh))) {
-					fprintf(stderr, "failed to allocate mesh\n");
-					goto fail;
-				}
-				max_faces = 0;
-			}
-			break;
-
-		case 'm':
-			if(memcmp(line, "mtllib", 6) == 0 && (line = cleanline(line + 6))) {
-				free_mtllist(mtllist);
-				mtllist = load_mtllib(path_prefix, line);
-			}
-			break;
-
-		case 'u':
-			if(memcmp(line, "usemtl", 6) == 0 && (line = cleanline(line + 6))) {
-				mtl = mtllist;
-				while(mtl) {
-					if(strcmp(mtl->name, line) == 0) {
-						curmtl = *mtl;
-						break;
-					}
-					mtl = mtl->next;
-				}
-			}
-			break;
-
-		default:
-			break;
+	endp = sptr = path_prefix = alloca(strlen(fname) + 1);
+	while(*fname) {
+		char c = *fname++;
+		if(c == '/' || c == '\\') {
+			*sptr++ = '/';
+			endp = sptr;
+		} else {
+			*sptr++ = c;
 		}
 	}
+	*endp = 0;
 
-	if(mesh->num_faces) {
-		conv_mtl(&mesh->mtl, &curmtl, path_prefix);
-		total_faces += mesh->num_faces;
+	count = mf_num_meshes(mf);
+	for(i=0; i<count; i++) {
+		if(!(mesh = conv_mesh(mf_get_mesh(mf, i), path_prefix))) {
+			goto err;
+		}
 		mesh->next = scn->meshlist;
 		scn->meshlist = mesh;
 		scn->num_meshes++;
-	} else {
-		free(mesh);
+
+		tricount += mesh->num_faces;
 	}
-	mesh = 0;
 
-	printf("load_scenefile: loaded %d meshes, %d vertices, %d triangles\n", scn->num_meshes,
-			varr_size, total_faces);
+	printf("load_scenefile: loaded %d meshes, %d triangles\n", scn->num_meshes, tricount);
 
-	res = 0;
+	mf_free(mf);
+	return 0;
 
-fail:
-	fclose(fp);
-	free(mesh);
-	free(varr);
-	free(narr);
-	free(tarr);
-	free_mtllist(mtllist);
-	return res;
+err:
+	mesh = scn->meshlist;
+	while(mesh) {
+		struct mesh *tmp = mesh;
+		mesh = mesh->next;
+		destroy_mesh(tmp);
+		free(tmp);
+	}
+	return -1;
 }
 
 void destroy_scenefile(struct scenefile *scn)
 {
 	struct mesh *m;
+	struct light *lt;
+
 	while(scn->meshlist) {
 		m = scn->meshlist;
 		scn->meshlist = scn->meshlist->next;
+		destroy_mesh(m);
 		free(m);
+	}
+
+	while(scn->lightlist) {
+		lt = scn->lightlist;
+		scn->lightlist = scn->lightlist->next;
+		free(lt);
 	}
 }
 
@@ -257,6 +91,98 @@ void destroy_mesh(struct mesh *m)
 	free(m->mtl.name);
 	free(m->faces);
 	m->faces = 0;
+}
+
+#define CONV_VEC2(mfmv) (*(cgm_vec2*)&(mfmv))
+#define CONV_VEC3(mfmv)	(*(cgm_vec3*)&(mfmv))
+
+static struct mesh *conv_mesh(struct mf_mesh *mfm, const char *path_prefix)
+{
+	unsigned int i, j, vidx;
+	struct mesh *m;
+	struct triangle *tri;
+
+	if(!(m = calloc(1, sizeof *m))) {
+		fprintf(stderr, "failed to allocate mesh structure\n");
+		return 0;
+	}
+
+	if(!(m->faces = malloc(mfm->num_faces * sizeof *m->faces))) {
+		fprintf(stderr, "failed to allocate triangle array\n");
+		free(m);
+		return 0;
+	}
+	m->num_faces = mfm->num_faces;
+
+	if(mfm->name) {
+		m->name = strdup(mfm->name);
+	}
+
+	tri = m->faces;
+	for(i=0; i<mfm->num_faces; i++) {
+		for(j=0; j<3; j++) {
+			vidx = mfm->faces[i].vidx[j];
+			tri->v[j].pos = CONV_VEC3(mfm->vertex[vidx]);
+			tri->v[j].norm = CONV_VEC3(mfm->normal[vidx]);
+			tri->v[j].tex = CONV_VEC2(mfm->texcoord[vidx]);
+		}
+		calc_face_normal(tri);
+		tri->mtl = &m->mtl;
+		tri++;
+	}
+
+	/* convert material */
+	if(conv_mtl(&m->mtl, mfm->mtl, path_prefix) == -1) {
+		goto err;
+	}
+	return m;
+
+err:
+	destroy_mesh(m);
+	free(m);
+	return 0;
+}
+
+int conv_mtl(struct material *mtl, struct mf_material *mmtl, const char *path_prefix)
+{
+	static const enum mf_mtlattr_type mfattr[] = {
+		MF_COLOR,
+		MF_SPECULAR,
+		MF_EMISSIVE,
+		MF_TRANSMIT,
+		MF_ROUGHNESS,
+		MF_METALLIC,
+		MF_SHININESS,
+		MF_REFLECT
+	};
+
+	int i;
+
+	if(mmtl->name && !(mtl->name = strdup(mmtl->name))) {
+		return -1;
+	}
+	for(i=0; i<NUM_MATTR; i++) {
+		mtl->attr[i].value = CONV_VEC3(mmtl->attr[mfattr[i]].val);
+		mtl->attr[i].tex = load_texture(mmtl->attr[mfattr[i]].map.name, path_prefix);
+	}
+	mtl->ior = mmtl->attr[MF_IOR].val.x;
+	mtl->metal = mtl->attr[MATTR_METALLIC].value.x > 1e-4;
+	return 0;
+}
+
+static struct image *load_texture(const char *fname, const char *path_prefix)
+{
+	char *path;
+
+	if(!fname) return 0;
+
+	if(path_prefix && *path_prefix) {
+		path = alloca(strlen(fname) + strlen(path_prefix) + 1);
+		sprintf(path, "%s/%s", path_prefix, fname);
+	} else {
+		path = (char*)fname;
+	}
+	return get_image(path);
 }
 
 static void calc_face_normal(struct triangle *tri)
@@ -272,6 +198,7 @@ static void calc_face_normal(struct triangle *tri)
 	cgm_vnormalize(&tri->norm);
 }
 
+#if 0
 static char *cleanline(char *s)
 {
 	char *ptr;
@@ -283,137 +210,6 @@ static char *cleanline(char *s)
 	while(ptr >= s && isspace(*ptr)) *ptr-- = 0;
 
 	return *s ? s : 0;
-}
-
-static char *parse_idx(char *ptr, int *idx, int arrsz)
-{
-	char *endp;
-	int val = strtol(ptr, &endp, 10);
-	if(endp == ptr) return 0;
-
-	if(val < 0) {	/* convert negative indices */
-		*idx = arrsz + val;
-	} else {
-		*idx = val - 1;	/* indices in obj are 1-based */
-	}
-	return endp;
-}
-
-/* possible face-vertex definitions:
- * 1. vertex
- * 2. vertex/texcoord
- * 3. vertex//normal
- * 4. vertex/texcoord/normal
- */
-static char *parse_face_vert(char *ptr, struct facevertex *fv, int numv, int numt, int numn)
-{
-	fv->tidx = fv->nidx = -1;
-
-	if(!(ptr = parse_idx(ptr, &fv->vidx, numv)))
-		return 0;
-	if(*ptr != '/') return (!*ptr || isspace(*ptr)) ? ptr : 0;
-
-	if(*++ptr == '/') {	/* no texcoord */
-		++ptr;
-	} else {
-		if(!(ptr = parse_idx(ptr, &fv->tidx, numt)))
-			return 0;
-		if(*ptr != '/') return (!*ptr || isspace(*ptr)) ? ptr : 0;
-		++ptr;
-	}
-
-	if(!(ptr = parse_idx(ptr, &fv->nidx, numn)))
-		return 0;
-	return (!*ptr || isspace(*ptr)) ? ptr : 0;
-}
-
-static struct objmtl *load_mtllib(const char *path_prefix, const char *mtlfname)
-{
-	FILE *fp;
-	char buf[256], *line;
-	struct objmtl *mlist = 0, *m = 0;
-
-	if(path_prefix && *path_prefix) {
-		sprintf(buf, "%s/%s", path_prefix, mtlfname);
-	} else {
-		strcpy(buf, mtlfname);
-	}
-
-	if(!(fp = fopen(buf, "rb"))) {
-		return 0;
-	}
-
-	while(fgets(buf, sizeof buf, fp)) {
-		if(!(line = cleanline(buf))) {
-			continue;
-		}
-
-		if(memcmp(line, "newmtl", 6) == 0) {
-			if(m) {
-				m->next = mlist;
-				mlist = m;
-			}
-			if((m = calloc(1, sizeof *m))) {
-				if((line = cleanline(line + 6))) {
-					m->name = strdup(line);
-				}
-				m->shin = 25.0f;
-			}
-		} else if(memcmp(line, "Kd", 2) == 0) {
-			if(m) sscanf(line + 3, "%f %f %f", &m->kd.x, &m->kd.y, &m->kd.z);
-		} else if(memcmp(line, "Ks", 2) == 0) {
-			if(m) sscanf(line + 3, "%f %f %f", &m->ks.x, &m->ks.y, &m->ks.z);
-		} else if(memcmp(line, "Ke", 2) == 0) {
-			if(m) sscanf(line + 3, "%f %f %f", &m->ke.x, &m->ke.y, &m->ke.z);
-		} else if(memcmp(line, "Ns", 2) == 0) {
-			if(m) m->shin = atof(line + 3) / 1000.0f * 127.0f;
-		} else if(memcmp(line, "Ni", 2) == 0) {
-			if(m) m->ior = atof(line + 3);
-		} else if(line[0] == 'd' && isspace(line[1])) {
-			if(m) m->alpha = atof(line + 2);
-		} else if(memcmp(line, "Ka", 2) == 0) {
-			if(m) m->refl = atof(line + 3);
-		} else if(memcmp(line, "Pr", 2) == 0) {
-			if(m) {
-				m->roughness = atof(line + 3);
-				m->valid |= MTL_ROUGHNESS;
-			}
-		} else if(memcmp(line, "Pm", 2) == 0) {
-			if(m) {
-				m->metallic = atof(line + 3);
-				m->valid |= MTL_METALLIC;
-			}
-		} else if(memcmp(line, "map_Kd", 6) == 0) {
-			if(m && (line = cleanline(line + 6))) {
-				m->map_kd = strdup(line);
-			}
-		} else if(memcmp(line, "map_Ke", 6) == 0) {
-			if(m && (line = cleanline(line + 6))) {
-				m->map_ke = strdup(line);
-			}
-		} else if(memcmp(line, "map_d", 5) == 0) {
-			if(m && (line = cleanline(line + 5))) {
-				m->map_alpha = strdup(line);
-			}
-		}
-	}
-
-	if(m) {
-		m->next = mlist;
-		mlist = m;
-	}
-
-	fclose(fp);
-	return mlist;
-}
-
-static void free_mtllist(struct objmtl *mtl)
-{
-	while(mtl) {
-		void *tmp = mtl;
-		mtl = mtl->next;
-		free(tmp);
-	}
 }
 
 static void conv_mtl(struct material *mm, struct objmtl *om, const char *path_prefix)
@@ -461,3 +257,4 @@ static void conv_mtl(struct material *mm, struct objmtl *om, const char *path_pr
 		mm->mask = get_image(fname);
 	}
 }
+#endif
