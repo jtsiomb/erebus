@@ -6,6 +6,7 @@
 #include "scene.h"
 #include "util.h"
 #include "meshfile.h"
+#include "imago2.h"
 
 
 static struct mesh *conv_mesh(struct mf_mesh *mfm, const char *path_prefix);
@@ -31,8 +32,8 @@ int load_scenefile(struct scenefile *scn, const char *fname)
 	while(*fname) {
 		char c = *fname++;
 		if(c == '/' || c == '\\') {
-			*sptr++ = '/';
 			endp = sptr;
+			*sptr++ = '/';
 		} else {
 			*sptr++ = c;
 		}
@@ -129,8 +130,12 @@ static struct mesh *conv_mesh(struct mf_mesh *mfm, const char *path_prefix)
 		for(j=0; j<3; j++) {
 			vidx = mfm->faces[i].vidx[j];
 			tri->v[j].pos = CONV_VEC3(mfm->vertex[vidx]);
-			tri->v[j].norm = CONV_VEC3(mfm->normal[vidx]);
-			tri->v[j].tex = CONV_VEC2(mfm->texcoord[vidx]);
+			if(mfm->normal) {
+				tri->v[j].norm = CONV_VEC3(mfm->normal[vidx]);
+			}
+			if(mfm->texcoord) {
+				tri->v[j].tex = CONV_VEC2(mfm->texcoord[vidx]);
+			}
 		}
 		calc_face_normal(tri);
 		tri->mtl = &m->mtl;
@@ -163,16 +168,34 @@ int conv_mtl(struct material *mtl, struct mf_material *mmtl, const char *path_pr
 	};
 
 	int i;
+	struct image *img;
 
 	if(mmtl->name && !(mtl->name = strdup(mmtl->name))) {
 		return -1;
 	}
 	for(i=0; i<NUM_MATTR; i++) {
 		mtl->attr[i].value = CONV_VEC3(mmtl->attr[mfattr[i]].val);
-		mtl->attr[i].tex = load_texture(mmtl->attr[mfattr[i]].map.name, path_prefix);
+		if((img = load_texture(mmtl->attr[mfattr[i]].map.name, path_prefix))) {
+			mtl->attr[i].tex = img;
+
+			if(i == MATTR_COLOR && img->alpha) {
+				printf("extracting alpha mask from: %s\n", img->name);
+				if((mtl->mask = calloc(1, sizeof *mtl->mask))) {
+					*mtl->mask = *img;
+					mtl->mask->pixels = img->alpha;
+					mtl->mask->alpha = 0;
+				}
+			}
+		}
 	}
 	mtl->ior = mmtl->attr[MF_IOR].val.x;
 	mtl->metal = mtl->attr[MATTR_METALLIC].value.x > 1e-4;
+
+	if((img = load_texture(mmtl->attr[MF_ALPHA].map.name, path_prefix))) {
+		printf("using alpha texture %s as mask\n", img->name);
+		mtl->mask = img;
+	}
+
 	return 0;
 }
 

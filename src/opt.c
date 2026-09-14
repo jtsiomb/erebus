@@ -21,22 +21,25 @@ struct options opt = {
 	OPT_TONEMAP_ACES
 };
 
-static const char *usage_fmt = "Usage: %s [options] <scene file>\n"
-	"Options:\n"
-	" -o <filename>: output image file\n"
-	" -s,-size <WxH>: output image resolution\n"
-	" -r,-samples <N>: number of rays per pixel\n"
-	" -t,-threads <N>: override number of threads\n"
-	" -tile <N>: render tile size\n"
-	" -d,-depth <N>: maximum recursion depth\n"
+static const char *usage_text[] = {
+	"Usage: %s [options] <scene file>\n",
+	"Options:\n",
+	" -o <filename>: output image file\n",
+	" -s,-size <WxH>: output image resolution\n",
+	" -r,-samples <N>: number of rays per pixel\n",
+	" -t,-threads <N>: override number of threads\n",
+	" -tile <N>: render tile size\n",
+	" -d,-depth <N>: maximum recursion depth\n",
 #ifdef USE_OIDN
-	" -D,-denoise: toggle denoising\n"
+	" -D,-denoise: toggle denoising\n",
 #endif
-	" -R,-renderer <renderer>: select renderer (rt, path)\n"
-	" -np: disable progress bar\n"
-	" -gamma <N>: gamma exponent for the output image\n"
-	" -tmap <op>: select tone mapping operator (reinhard, aces)\n"
-	" -h,-help: print usage information and exit\n\n";
+	" -R,-renderer <renderer>: select renderer (rt, path)\n",
+	" -np: disable progress bar\n",
+	" -gamma <N>: gamma exponent for the output image\n",
+	" -tmap <op>: select tone mapping operator (reinhard, aces)\n",
+	" -h,-help: print usage information and exit\n\n",
+	0
+};
 
 int parse_args(int argc, char **argv)
 {
@@ -119,7 +122,10 @@ int parse_args(int argc, char **argv)
 				opt.shm = argv[i];
 
 			} else if(strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "-help") == 0) {
-				printf(usage_fmt, argv[0]);
+				printf(usage_text[0], argv[0]);
+				for(i=1; usage_text[i]; i++) {
+					fputs(usage_text[i], stdout);
+				}
 				exit(0);
 
 			} else {

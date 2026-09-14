@@ -15,9 +15,49 @@ static int calc_shift(int x);
 
 int load_image(struct image *img, const char *fname)
 {
-	if(!(img->pixels = img_load_pixels(fname, &img->width, &img->height, IMG_FMT_RGBF))) {
+	int has_alpha = 0;
+	unsigned int i, npixels;
+	float *dest, *ptr;
+
+	printf("loading image: %s\n", fname);
+	if(!(img->pixels = img_load_pixels(fname, &img->width, &img->height, IMG_FMT_RGBAF))) {
 		fprintf(stderr, "load_image: failed to load %s\n", fname);
 		return -1;
+	}
+
+	/* split out the alpha channel */
+	npixels = img->width * img->height;
+	ptr = img->pixels;
+	for(i=0; i<npixels; i++) {
+		if(ptr[3] < 1.0f) {
+			has_alpha = 1;
+			break;
+		}
+		ptr += 4;
+	}
+
+	if(has_alpha) {
+		if(!(img->alpha = malloc(npixels * sizeof(float)))) {
+			fprintf(stderr, "load_image: failed to split out alpha channel from %s\n", fname);
+			goto conv_rgb;
+		}
+
+		dest = img->alpha;
+		ptr = img->pixels + 3;
+		for(i=0; i<npixels; i++) {
+			*dest++ = *ptr;
+			ptr += 4;
+		}
+	} else {
+		img->alpha = 0;
+	}
+
+conv_rgb:
+	dest = ptr = img->pixels;
+	for(i=1; i<npixels; i++) {
+		dest += 3;
+		ptr += 4;
+		memmove(dest, ptr, 3 * sizeof(float));
 	}
 
 	if(ispow2(img->width)) {
@@ -41,6 +81,13 @@ void destroy_image(struct image *img)
 {
 	img_free_pixels(img->pixels);
 	img->pixels = 0;
+	free(img->alpha);
+	img->alpha = 0;
+}
+
+static void delfunc(struct rbnode *node, void *cls)
+{
+	destroy_image(node->data);
 }
 
 int add_image(struct image *img)
@@ -50,8 +97,16 @@ int add_image(struct image *img)
 			fprintf(stderr, "add_image: failed to create image database\n");
 			return -1;
 		}
+		rb_set_delete_func(imgdb, delfunc, 0);
 	}
 	return rb_insert(imgdb, img->name, img);
+}
+
+int remove_image(const char *name)
+{
+	if(!imgdb) return -1;
+
+	return rb_delete(imgdb, (void*)name);
 }
 
 struct image *get_image(const char *name)
@@ -96,9 +151,16 @@ void dbg_dump_images(void)
 		if((ptr = strrchr(basename, '.'))) {
 			*ptr = 0;
 		}
-		sprintf(pathbuf, "img%02d-%s.ppm", n++, basename);
+		sprintf(pathbuf, "img%02d-%s.ppm", n, basename);
 		res = img_save_pixels(pathbuf, img->pixels, img->width, img->height, IMG_FMT_RGBF);
 		printf(" - %s ... %s\n", pathbuf, res == -1 ? "failed" : "done");
+
+		if(img->alpha) {
+			sprintf(pathbuf, "img%02d-alpha.ppm", n);
+			res = img_save_pixels(pathbuf, img->alpha, img->width, img->height, IMG_FMT_GREYF);
+			printf(" - %s ... %s\n", pathbuf, res == -1 ? "failed" : "done");
+		}
+		n++;
 	}
 }
 

@@ -60,6 +60,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	/*dbg_dump_images();*/
+
 	if(scn.camlist) {
 		cgm_mcopy(view_xform, scn.camlist->node.matrix);
 		set_fov(scn.camlist->fov);
