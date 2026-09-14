@@ -3,6 +3,7 @@
 #include "erebus.h"
 #include "scene.h"
 #include "rt.h"
+#include "mesh.h"
 #include "opt.h"
 #include "imago2.h"
 #include "denoise.h"

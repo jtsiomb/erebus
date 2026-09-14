@@ -211,9 +211,16 @@ void destroy_scene(struct scene *scn)
 	}
 }
 
-struct node *find_scn_node(struct scene *scn, const char *name)
+struct mesh *find_scn_mesh(struct scene *scn, const char *name)
 {
-	return 0;	/* TODO */
+	struct mesh *m = scn->meshlist;
+	while(m) {
+		if(m->name && strcmp(m->name, name) == 0) {
+			return m;
+		}
+		m = m->next;
+	}
+	return 0;
 }
 
 int ray_scene(cgm_ray *ray, struct scene *scn, float tmax, struct rayhit *hit)

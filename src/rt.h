@@ -1,6 +1,7 @@
 #ifndef RT_H_
 #define RT_H_
 
+#include <stdio.h>
 #include "cgmath/cgmath.h"
 #include "image.h"
 #include "tpool.h"
@@ -97,6 +98,7 @@ float fresnel(float costheta, float ior);
 float mtlattr_num(struct material *mtl, int attr, cgm_vec2 *uv);
 void mtlattr_vec(cgm_vec3 *res, struct material *mtl, int attr, cgm_vec2 *uv);
 void tex_lookup(cgm_vec3 *res, struct image *img, float u, float v);
+void mtlprint(FILE *fp, struct material *mtl);
 
 static INLINE float frand(void)
 {

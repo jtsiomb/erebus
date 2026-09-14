@@ -326,6 +326,27 @@ void tex_lookup(cgm_vec3 *res, struct image *img, float u, float v)
 	}
 }
 
+void mtlprint(FILE *fp, struct material *mtl)
+{
+	static const char *aname[] = {"color", "specular", "emit", "transmit",
+		"roughness", "metallic", "shininess", "reflect"};
+	int i;
+
+	fprintf(fp, "Material: %s\n", mtl->name);
+	for(i=0; i<NUM_MATTR; i++) {
+		fprintf(fp, " %s: %g %g %g", aname[i], mtl->attr[i].value.x, mtl->attr[i].value.y,
+				mtl->attr[i].value.z);
+		if(mtl->attr[i].tex) {
+			fprintf(fp, " - tex: %s\n", mtl->attr[i].tex->name);
+		} else {
+			fputc('\n', fp);
+		}
+	}
+	fprintf(fp, " ior: %g\n", mtl->ior);
+	if(mtl->mask) {
+		fprintf(fp, " mask: %s\n", mtl->mask->name);
+	}
+}
 
 static void print_progress(int p, int sample)
 {

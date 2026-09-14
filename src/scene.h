@@ -48,7 +48,7 @@ void calc_node_matrix(struct node *n);
 int load_scene(struct scene *scn, const char *fname);
 void destroy_scene(struct scene *scn);
 
-struct node *find_scn_node(struct scene *scn, const char *name);
+struct mesh *find_scn_mesh(struct scene *scn, const char *name);
 
 int ray_scene(cgm_ray *ray, struct scene *scn, float tmax, struct rayhit *hit);
 
