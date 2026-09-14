@@ -64,6 +64,7 @@ err:
 		destroy_mesh(tmp);
 		free(tmp);
 	}
+	mf_free(mf);
 	return -1;
 }
 
@@ -101,6 +102,11 @@ static struct mesh *conv_mesh(struct mf_mesh *mfm, const char *path_prefix)
 	unsigned int i, j, vidx;
 	struct mesh *m;
 	struct triangle *tri;
+
+	if(mfm->num_faces <= 0) {
+		fprintf(stderr, "conv_mesh: mesh has no faces\n");
+		return 0;
+	}
 
 	if(!(m = calloc(1, sizeof *m))) {
 		fprintf(stderr, "failed to allocate mesh structure\n");

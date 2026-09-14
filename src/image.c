@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <imago2.h>
+#include <string.h>
+#include "imago2.h"
 #include "image.h"
 #include "rbtree.h"
 
@@ -31,6 +32,8 @@ int load_image(struct image *img, const char *fname)
 	} else {
 		img->ymask = 0;
 	}
+
+	img->name = strdup(fname);
 	return 0;
 }
 
@@ -40,7 +43,7 @@ void destroy_image(struct image *img)
 	img->pixels = 0;
 }
 
-int add_image(const char *name, struct image *img)
+int add_image(struct image *img)
 {
 	if(!imgdb) {
 		if(!(imgdb = rb_create(RB_KEY_STRING))) {
@@ -48,7 +51,7 @@ int add_image(const char *name, struct image *img)
 			return -1;
 		}
 	}
-	return rb_insert(imgdb, (char*)name, img);
+	return rb_insert(imgdb, img->name, img);
 }
 
 struct image *get_image(const char *name)
@@ -68,8 +71,35 @@ struct image *get_image(const char *name)
 		free(img);
 		return 0;
 	}
-	add_image(name, img);
+	add_image(img);
 	return img;
+}
+
+void dbg_dump_images(void)
+{
+	int res, n = 0;
+	struct rbnode *rbn;
+	struct image *img;
+	char pathbuf[256], basename[256], *fname, *ptr;
+
+	printf("dbg_dump_images\n");
+
+	rb_begin(imgdb);
+	while((rbn = rb_next(imgdb))) {
+		img = rbn->data;
+		fname = rbn->key;
+		if((ptr = strrchr(fname, '/'))) {
+			strcpy(basename, ptr + 1);
+		} else {
+			strcpy(basename, fname);
+		}
+		if((ptr = strrchr(basename, '.'))) {
+			*ptr = 0;
+		}
+		sprintf(pathbuf, "img%02d-%s.ppm", n++, basename);
+		res = img_save_pixels(pathbuf, img->pixels, img->width, img->height, IMG_FMT_RGBF);
+		printf(" - %s ... %s\n", pathbuf, res == -1 ? "failed" : "done");
+	}
 }
 
 static int ispow2(unsigned int x)

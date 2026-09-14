@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <float.h>
 #include <assert.h>
 #include "rt.h"
@@ -93,6 +94,7 @@ int fbsize(int width, int height)
 			}
 #endif
 			tileptr->sample = 0;
+			memset(&tileptr->rndstate, 0, sizeof tileptr->rndstate);
 			tinymt32_init(&tileptr->rndstate, (i << 16) | j);
 			tileptr++;
 
@@ -311,12 +313,15 @@ void tex_lookup(cgm_vec3 *res, struct image *img, float u, float v)
 	} else {
 		ty = (int)(v * img->height) % img->height;
 	}
+	if(ty < 0) ty += img->height;
 
 	if(img->xmask) {
 		tx = (int)(u * img->width) & img->xmask;
+		if(tx < 0) tx += img->width;
 		*res = ((cgm_vec3*)img->pixels)[(ty << img->xshift) + tx];
 	} else {
 		tx = (int)(u * img->width) % img->width;
+		if(tx < 0) tx += img->width;
 		*res = ((cgm_vec3*)img->pixels)[ty * img->width + tx];
 	}
 }

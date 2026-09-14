@@ -107,6 +107,8 @@ int main(int argc, char **argv)
 			nptr++;
 		}
 
+		img_save_pixels("dbgnoise.ppm", fb.pixels, fb.width, fb.height, IMG_FMT_RGBAF);
+
 		printf("denoising\n");
 		denoise((float*)fb.pixels, (float*)fb.normals, (float*)fb.albedo, fb.width, fb.height);
 	}
