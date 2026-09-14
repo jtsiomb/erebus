@@ -11,6 +11,8 @@ erebus-gui
 *.jpg
 *.rgbe
 *.hdr
+*.ppm
+*.pgm
 .cache/
 *.a
 *.lib
@@ -20,6 +22,6 @@ RUN
 PT
 RT
 core.*
-*.ppm
 oidn.h
 scenes/
+xerebus
