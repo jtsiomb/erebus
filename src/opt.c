@@ -17,7 +17,8 @@ struct options opt = {
 #endif
 	OPT_DEF_RENDERER,
 	OPT_PROGRESS,
-	1.0f				/* gamma */
+	2.2f,				/* gamma */
+	OPT_TONEMAP_ACES
 };
 
 static const char *usage_fmt = "Usage: %s [options] <scene file>\n"
@@ -34,6 +35,7 @@ static const char *usage_fmt = "Usage: %s [options] <scene file>\n"
 	" -R,-renderer <renderer>: select renderer (rt, path)\n"
 	" -np: disable progress bar\n"
 	" -gamma <N>: gamma exponent for the output image\n"
+	" -tmap <op>: select tone mapping operator (reinhard, aces)\n"
 	" -h,-help: print usage information and exit\n\n";
 
 int parse_args(int argc, char **argv)
@@ -92,6 +94,15 @@ int parse_args(int argc, char **argv)
 					fprintf(stderr, "-gamma must be followed by a gamma value\n");
 					return -1;
 				}
+
+			} else if(strcmp(argv[i], "-tmap") == 0) {
+				enum opt_tonemap tmap;
+				if(!argv[++i] || ((tmap = OPT_TONEMAP_REINHARD, strcmp(argv[i], "reinhard") != 0) &&
+						(tmap = OPT_TONEMAP_ACES, strcmp(argv[i], "aces") != 0))) {
+					fprintf(stderr, "%s must be followed by the renderer (reinhard, aces)\n", argv[i - 1]);
+					return -1;
+				}
+				opt.tonemap = tmap;
 
 			} else if(strcmp(argv[i], "-o") == 0) {
 				if(!argv[++i]) {

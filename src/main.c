@@ -9,6 +9,7 @@
 #include "denoise.h"
 #include "shmfb.h"
 #include "util.h"
+#include "postproc.h"
 
 void cleanup(void);
 void sighandler(int s);
@@ -140,29 +141,24 @@ int main(int argc, char **argv)
 	}
 #endif
 
+	/*
+	switch(opt.tonemap) {
+	case OPT_TONEMAP_REINHARD:
+		post_reinhard();
+		break;
+
+	case OPT_TONEMAP_ACES:
+		post_acesfilm();
+		break;
+
+	default:
+		break;
+	}
+	*/
+
 	if(opt.gamma != 1.0f) {
-		float inv_gamma = 1.0f / opt.gamma;
-
 		printf("gamma correction: %g\n", opt.gamma);
-
-		fbptr = fb.pixels;
-#ifdef USE_OIDN
-		nptr = fb.normals;
-#endif
-		for(i=0; i<npixels; i++) {
-			fbptr->x = pow(fbptr->x, inv_gamma);
-			fbptr->y = pow(fbptr->y, inv_gamma);
-			fbptr->z = pow(fbptr->z, inv_gamma);
-			fbptr++;
-#ifdef USE_OIDN
-			if(opt.denoise) {
-				nptr->x = nptr->x * 0.5f + 0.5f;
-				nptr->y = nptr->y * 0.5f + 0.5f;
-				nptr->z = nptr->z * 0.5f + 0.5f;
-				nptr++;
-			}
-#endif
-		}
+		post_gamma(opt.gamma);
 	}
 
 	if(img_save_pixels(opt.outfile, fb.pixels, fb.width, fb.height, IMG_FMT_RGBAF) == -1) {
@@ -170,7 +166,16 @@ int main(int argc, char **argv)
 		goto end;
 	}
 #ifdef USE_OIDN
+	/* dump denoise inputs */
 	if(opt.denoise) {
+		nptr = fb.normals;
+		for(i=0; i<npixels; i++) {
+			nptr->x = nptr->x * 0.5f + 0.5f;
+			nptr->y = nptr->y * 0.5f + 0.5f;
+			nptr->z = nptr->z * 0.5f + 0.5f;
+			nptr++;
+		}
+
 		img_save_pixels("dbgnorm.ppm", fb.normals, fb.width, fb.height, IMG_FMT_RGBF);
 		img_save_pixels("dbgalb.ppm", fb.albedo, fb.width, fb.height, IMG_FMT_RGBF);
 	}

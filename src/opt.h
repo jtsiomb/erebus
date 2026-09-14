@@ -7,6 +7,12 @@ enum opt_renderer {
 	OPT_PATH_TRACER
 };
 
+enum opt_tonemap {
+	OPT_TONEMAP_NONE,
+	OPT_TONEMAP_REINHARD,
+	OPT_TONEMAP_ACES
+};
+
 enum {
 	OPT_PROGRESS = 1
 };
@@ -27,6 +33,7 @@ struct options {
 	enum opt_renderer renderer;
 	unsigned int flags;
 	float gamma;
+	enum opt_tonemap tonemap;
 };
 
 extern struct options opt;
