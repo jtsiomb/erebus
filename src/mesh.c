@@ -167,8 +167,9 @@ int conv_mtl(struct material *mtl, struct mf_material *mmtl, const char *path_pr
 		MF_REFLECT
 	};
 
-	int i;
+	int i, j, npixels;
 	struct image *img;
+	float *src, *dest;
 
 	if(mmtl->name && !(mtl->name = strdup(mmtl->name))) {
 		return -1;
@@ -179,11 +180,25 @@ int conv_mtl(struct material *mtl, struct mf_material *mmtl, const char *path_pr
 			mtl->attr[i].tex = img;
 
 			if(i == MATTR_COLOR && img->alpha) {
+				if(!(mtl->mask = calloc(1, sizeof *mtl->mask))) {
+					continue;
+				}
+				*mtl->mask = *img;
+				mtl->mask->alpha = 0;
+				npixels = img->width * img->height;
+
+				if(!(mtl->mask->pixels = malloc(npixels * 3 * sizeof(float)))) {
+					free(mtl->mask);
+					mtl->mask = 0;
+					continue;
+				}
+
 				printf("extracting alpha mask from: %s\n", img->name);
-				if((mtl->mask = calloc(1, sizeof *mtl->mask))) {
-					*mtl->mask = *img;
-					mtl->mask->pixels = img->alpha;
-					mtl->mask->alpha = 0;
+				src = img->alpha;
+				dest = mtl->mask->pixels;
+				for(j=0; j<npixels; j++) {
+					dest[0] = dest[1] = dest[2] = *src++;
+					dest += 3;
 				}
 			}
 		}
