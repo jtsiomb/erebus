@@ -50,9 +50,9 @@ void post_acesfilm(void)
 	cgm_vec4 *fbptr = fb.pixels;
 
 	for(i=0; i<npixels; i++) {
-		fbptr->x = acesfilm(fbptr->x);
-		fbptr->y = acesfilm(fbptr->y);
-		fbptr->z = acesfilm(fbptr->z);
+		fbptr->x = acesfilm(fbptr->x * 0.6f);
+		fbptr->y = acesfilm(fbptr->y * 0.6f);
+		fbptr->z = acesfilm(fbptr->z * 0.6f);
 		fbptr++;
 	}
 }

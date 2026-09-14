@@ -141,7 +141,6 @@ int main(int argc, char **argv)
 	}
 #endif
 
-	/*
 	switch(opt.tonemap) {
 	case OPT_TONEMAP_REINHARD:
 		post_reinhard();
@@ -154,7 +153,6 @@ int main(int argc, char **argv)
 	default:
 		break;
 	}
-	*/
 
 	if(opt.gamma != 1.0f) {
 		printf("gamma correction: %g\n", opt.gamma);
