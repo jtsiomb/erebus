@@ -6,6 +6,7 @@
 #include "xerebus.h"
 #include "ui.h"
 #include "xmutil.h"
+#include <X11/Xmu/Editres.h>
 
 static void glinit(Widget w, void *cls);
 static void gldraw(Widget w, void *cls);
@@ -38,6 +39,8 @@ int main(int argc, char **argv)
 	}
 	XtVaSetValues(app_shell, XmNtitle, "erebus GUI", NULL);
 	XtVaSetValues(app_shell, XmNallowShellResize, True, NULL);
+
+	XtAddEventHandler(app_shell, (EventMask)0, True, _XEditResCheckMessages, NULL);
 
 	if(init_gui() == -1) {
 		return 1;

@@ -16,12 +16,16 @@
 #include <Xm/TextF.h>
 #include <Xm/FileSB.h>
 #include <Xm/Scale.h>
-#include <Xm/SSpinB.h>
 #include <Xm/SelectioB.h>
 #include <Xm/DialogS.h>
 #include <Xm/PanedW.h>
 #include <Xm/DrawingA.h>
 #include <GL/GLwMDrawA.h>
+
+#if XmVERSION >= 2
+#include <Xm/SSpinB.h>
+#define HAVE_SPINBOX
+#endif
 
 
 /* motif widget creation convenience wrappers */
@@ -77,6 +81,8 @@ int xm_selected_option(Widget w);
 void xm_set_progress(Widget w, int progr);
 
 Pixel xm_named_color(const char *str);
+
+void xm_cb_verify_numeric(Widget w, void *cls, void *calldata);
 
 /* higher level app-specific utility functions and composite "widgets" */
 Widget create_pathfield(Widget par, const char *defpath, const char *filter,

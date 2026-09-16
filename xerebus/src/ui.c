@@ -20,7 +20,7 @@ int init_gui(void)
 {
 	Widget main;
 	Widget frm_view, frm_rend;
-	Widget vbox, vbox_ui;
+	Widget vbox, vbox_ui, hbox;
 	Widget w;
 
 	win = XmCreateMainWindow(app_shell, "mainwin", 0, 0);
@@ -39,9 +39,16 @@ int init_gui(void)
 	xm_label(vbox, "method");
 	xm_va_option_menu(vbox, cb_rendopt, 0, "Path tracing", "Ray tracing", NULL);
 	xm_label(vbox, "resolution");
-	xm_spinboxi(vbox, ropt.xres, 1, 8192, True, cb_rendopt, (void*)1);
-	xm_label(vbox, "");
-	xm_spinboxi(vbox, ropt.yres, 1, 8192, True, cb_rendopt, (void*)2);
+	hbox = xm_rowcol(vbox, XmHORIZONTAL);
+	{
+		w = xm_textfield(hbox, "1280", cb_rendopt, (void*)1);
+		XtVaSetValues(w, XmNcolumns, 4, XmNmaxLength, 4, XmNmarginHeight, 2, NULL);
+		XtAddCallback(w, XmNmodifyVerifyCallback, xm_cb_verify_numeric, 0);
+		xm_label(hbox, "X");
+		w = xm_textfield(hbox, "720", cb_rendopt, (void*)2);
+		XtVaSetValues(w, XmNcolumns, 4, XmNmaxLength, 4, XmNmarginHeight, 2, NULL);
+		XtAddCallback(w, XmNmodifyVerifyCallback, xm_cb_verify_numeric, 0);
+	}
 	xm_label(vbox, "samples");
 	xm_spinboxi(vbox, ropt.nsamples, 1, 10000, True, cb_rendopt, (void*)3);
 	xm_label(vbox, "");
@@ -81,12 +88,11 @@ static void cb_rendopt(Widget w, void *cls, void *calldata)
 		break;
 
 	case 1:		/* width spinbox */
-		ropt.xres = ((XmSpinBoxCallbackStruct*)calldata)->position;
-		printf("width: %d\n", ropt.xres);
-		break;
+		ropt.xres = atoi(XmTextFieldGetString(w));
+		if(0)
 	case 2:		/* height spinbox */
-		ropt.yres = ((XmSpinBoxCallbackStruct*)calldata)->position;
-		printf("height: %d\n", ropt.yres);
+		ropt.yres = atoi(XmTextFieldGetString(w));
+		printf("resolution: %dx%d\n", ropt.xres, ropt.yres);
 		break;
 
 	case 3:		/* samples spinbox */
