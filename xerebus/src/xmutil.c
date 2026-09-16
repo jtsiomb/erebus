@@ -330,7 +330,6 @@ Widget xm_spinboxi(Widget par, int val, int min, int max, Bool edit, XtCallbackP
 	XtSetArg(args[num], XmNarrowSize, 14); num++;
 	XtSetArg(args[num], XmNdetailShadowThickness, 2); num++;
 	XtSetArg(args[num], XmNshadowThickness, 0); num++;
-	XtSetArg(args[num], XmNmarginWidth, 0); num++;
 	XtSetArg(args[num], XmNmarginHeight, 0); num++;
 	XtSetArg(args[num], XmNspacing, 0); num++;
 	w = XmCreateSimpleSpinBox(par, wname("sspin"), args, num);
@@ -363,10 +362,7 @@ Widget xm_progress(Widget par)
 	XtSetArg(args[num], XmNeditable, False); num++;
 	XtSetArg(args[num], XmNorientation, XmHORIZONTAL); num++;
 	XtSetArg(args[num], XmNshowValue, True), num++;
-#ifdef SgNslanted
-	XtSetArg(args[num], SgNslanted, True); num++;
-#endif
-	w = XmCreateScale(par, "progbar", args, num);
+	w = XmCreateScale(par, wname("progbar"), args, num);
 	XtManageChild(w);
 
 	return w;
