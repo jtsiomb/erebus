@@ -53,6 +53,48 @@ Widget xm_rowcol(Widget par, int orient)
 	return w;
 }
 
+static Widget rows_widget;
+static int rows_ncols;
+
+Widget xm_rows_begin(Widget par, int ncols)
+{
+	Widget w;
+	Arg args[5];
+
+	XtSetArg(args[0], XmNorientation, XmHORIZONTAL);
+	XtSetArg(args[1], XmNpacking, XmPACK_COLUMN);
+	XtSetArg(args[2], XmNisAligned, True);
+	XtSetArg(args[3], XmNentryAlignment, XmALIGNMENT_END);
+	XtSetArg(args[4], XmNadjustLast, False);
+	w = XmCreateRowColumn(par, "rowcolumn", args, 5);
+	XtManageChild(w);
+
+	rows_widget = w;
+	rows_ncols = ncols;
+	return w;
+}
+
+void xm_rows_end(void)
+{
+	int num, nrows;
+
+	if(!rows_widget) {
+		fprintf(stderr, "xm_rows_end: called without matching begin\n");
+		return;
+	}
+
+	XtVaGetValues(rows_widget, XmNnumChildren, &num, NULL);
+	if(num <= 0) {
+		fprintf(stderr, "xm_rows_end: no children found\n");
+		return;
+	}
+
+	nrows = (num + rows_ncols - 1) / rows_ncols;
+	XtVaSetValues(rows_widget, XmNnumColumns, nrows, NULL);
+	rows_widget = 0;
+}
+
+
 Widget xm_form(Widget par, int grid)
 {
 	Widget w;
@@ -169,20 +211,22 @@ Widget xm_va_option_menu(Widget par, XtCallbackProc cb, void *cls, ...)
 }
 
 Widget xm_sliderf(Widget par, const char *text, float val, float min, float max,
-		XtCallbackProc cb, void *cls)
+		int dig, XtCallbackProc cb, void *cls)
 {
 	Widget w;
 	Arg argv[16];
 	int argc = 0;
 	XmString xmstr;
-	float delta;
+	float delta, thres;
 	int s = 1;
 	int ndecimal = 0;
 
 	if((delta = max - min) <= 1e-6) {
 		return xm_label(par, "INVALID SLIDER RANGE");
 	}
-	while(delta < 100.0f) {
+
+	thres = pow(10.0, (float)dig);
+	while(delta < thres) {
 		delta *= 10.0f;
 		s *= 10;
 		ndecimal++;
@@ -248,24 +292,64 @@ Widget xm_slideri(Widget par, const char *text, int val, int min, int max,
 
 }
 
-Widget xm_spinboxi(Widget par, int val, int min, int max, XtCallbackProc cb, void *cls)
+static int count_digits(unsigned int x)
 {
+	int num = 0;
+	do {
+		num++;
+		x /= 10;
+	} while(x > 0);
+	return num;
+}
+
+Widget xm_spinboxi(Widget par, int val, int min, int max, Bool edit, XtCallbackProc cb, void *cls)
+{
+	int num = 0, cols, max_cols;
 	Arg args[16];
 	Widget w;
 
-	XtSetArg(args[0], XmNspinBoxChildType, XmNUMERIC);
-	XtSetArg(args[1], XmNminimumValue, min);
-	XtSetArg(args[2], XmNmaximumValue, max);
-	XtSetArg(args[3], XmNincrementValue, 1);
-	XtSetArg(args[4], XmNpositionType, XmPOSITION_VALUE);
-	XtSetArg(args[5], XmNposition, val);
-	XtSetArg(args[6], XmNeditable, 0);
-	w = XmCreateSimpleSpinBox(par, "sspin", args, 7);
+	max_cols = count_digits((unsigned int)max);
+	if(min < 0) {
+		cols = count_digits(abs(min)) + 1;
+		if(cols > max_cols) {
+			max_cols = cols;
+		}
+	}
+
+	XtSetArg(args[num], XmNspinBoxChildType, XmNUMERIC); num++;
+	XtSetArg(args[num], XmNminimumValue, min); num++;
+	XtSetArg(args[num], XmNmaximumValue, max); num++;
+	XtSetArg(args[num], XmNincrementValue, 1); num++;
+	XtSetArg(args[num], XmNpositionType, XmPOSITION_VALUE); num++;
+	XtSetArg(args[num], XmNposition, val); num++;
+	XtSetArg(args[num], XmNeditable, edit); num++;
+	XtSetArg(args[num], XmNcolumns, max_cols); num++;
+	w = XmCreateSimpleSpinBox(par, "sspin", args, num);
 	XtManageChild(w);
 
 	if(cb) {
 		XtAddCallback(w, XmNvalueChangedCallback, cb, cls);
 	}
+	return w;
+}
+
+Widget xm_progress(Widget par)
+{
+	int num = 0;
+	Arg args[16];
+	Widget w;
+
+	XtSetArg(args[num], XmNslidingMode, XmTHERMOMETER); num++;
+	XtSetArg(args[num], XmNminimum, 0); num++;
+	XtSetArg(args[num], XmNmaximum, 100); num++;
+	XtSetArg(args[num], XmNvalue, 0); num++;
+	XtSetArg(args[num], XmNeditable, False); num++;
+	XtSetArg(args[num], XmNorientation, XmHORIZONTAL); num++;
+	XtSetArg(args[num], XmNsliderVisual, XmFOREGROUND_COLOR); num++;
+	XtSetArg(args[num], XmNforeground, xm_named_color("red")); num++;
+	w = XmCreateScale(par, "progbar", args, num);
+	XtManageChild(w);
+
 	return w;
 }
 
@@ -637,6 +721,35 @@ int xm_select_option(Widget w, int opt)
 	XtVaGetValues(w, XmNchildren, &children, (void*)0);
 	XtVaSetValues(w, XmNmenuHistory, children[opt], (void*)0);
 	return 0;
+}
+
+int xm_selected_option(Widget w)
+{
+	void *ptr;
+	XtVaGetValues(w, XmNuserData, &ptr, NULL);
+	return (int)(unsigned long)ptr;
+}
+
+void xm_set_progress(Widget w, int progr)
+{
+	XmScaleSetValue(w, progr);
+}
+
+Pixel xm_named_color(const char *str)
+{
+	Display *dpy;
+	Colormap cmap;
+	int scr;
+	XColor col, exact;
+
+	dpy = XtDisplay(app_shell);
+	scr = XScreenNumberOfScreen(XtScreen(app_shell));
+	XtVaGetValues(app_shell, XmNcolormap, &cmap, NULL);
+
+	if(!XAllocNamedColor(dpy, cmap, str, &col, &exact)) {
+		return BlackPixel(dpy, scr);
+	}
+	return col.pixel;
 }
 
 static void filesel_handler(Widget dlg, void *cls, void *calldata);

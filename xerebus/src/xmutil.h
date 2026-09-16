@@ -28,6 +28,8 @@
 Widget xm_label(Widget par, const char *text);
 Widget xm_frame(Widget par, const char *title);
 Widget xm_rowcol(Widget par, int orient);	/* XmVERTICAL/XmHORIZONTAL */
+Widget xm_rows_begin(Widget par, int ncols);
+void xm_rows_end(void);
 Widget xm_form(Widget par, int grid);
 Widget xm_button(Widget par, const char *text, XtCallbackProc cb, void *cls);
 Widget xm_drawn_button(Widget par, int width, int height, XtCallbackProc cb, void *cls);
@@ -36,11 +38,11 @@ Widget xm_textfield(Widget par, const char *text, XtCallbackProc cb, void *cls);
 Widget xm_option_menu(Widget par);
 Widget xm_va_option_menu(Widget par, XtCallbackProc cb, void *cls, ...);
 Widget xm_sliderf(Widget par, const char *text, float val, float min, float max,
-		XtCallbackProc cb, void *cls);
+		int dig, XtCallbackProc cb, void *cls);
 Widget xm_slideri(Widget par, const char *text, int val, int min, int max,
 		XtCallbackProc cb, void *cls);
-
-Widget xm_spinboxi(Widget par, int val, int min, int max, XtCallbackProc cb, void *cls);
+Widget xm_spinboxi(Widget par, int val, int min, int max, Bool edit, XtCallbackProc cb, void *cls);
+Widget xm_progress(Widget par);
 
 enum { XM_GL_DOUBLE = 1, XM_GL_DEPTH = 2, XM_GL_STENCIL = 4, XM_GL_STEREO = 8 };
 typedef void (*xm_gl_init_func_type)(Widget, void*);
@@ -71,6 +73,10 @@ void xm_attach_pos_full(Widget w, int x0, int y0, int x1, int y1);	/* -1: leave 
 void xm_set_sliderf_value(Widget w, float val);
 float xm_get_sliderf_value(Widget w);
 int xm_select_option(Widget w, int opt);
+int xm_selected_option(Widget w);
+void xm_set_progress(Widget w, int progr);
+
+Pixel xm_named_color(const char *str);
 
 /* higher level app-specific utility functions and composite "widgets" */
 Widget create_pathfield(Widget par, const char *defpath, const char *filter,
