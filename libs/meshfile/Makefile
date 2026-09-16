@@ -7,6 +7,9 @@ CFLAGS = -O2
 $(lib): $(obj)
 	$(AR) rcs $@ $(obj)
 
+.c.o:
+	$(CC) -o $@ -c $< $(CFLAGS)
+
 .PHONY: clean
 clean:
 	rm -f $(obj) $(lib)

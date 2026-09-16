@@ -10,6 +10,9 @@ LDFLAGS = $(libdir) -lGLw -lGL -lXm -lXt -lX11 -lm
 $(bin): $(obj)
 	$(CC) -o $@ $(obj) $(LDFLAGS)
 
+.c.o:
+	$(CC) -o $@ -c $< $(CFLAGS)
+
 .PHONY: clean
 clean:
 	rm -f $(obj) $(bin)

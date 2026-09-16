@@ -69,16 +69,9 @@ typedef volatile long ATOMIC_INT;
 #elif defined(__sgi)
 #include <mutex.h>
 
-typedef volatile int ATOMIC_INT;
+typedef unsigned long ATOMIC_INT;
 
-static INLINE void atomic_int_zero(ATOMIC_INT *ai)
-{
-	int prev;
-	do {
-		prev = *ai;
-	} while(!compare_and_swap(ai, prev, 0));
-}
-
+#define atomic_int_zero(x)	atomic_set((x), 0)
 #define atomic_int_inc(x)	add_then_test((x), 1)
 #define atomic_int_value(x)	add_then_test((x), 0)
 

@@ -108,10 +108,12 @@ static void cb_postopt(Widget w, void *cls, void *calldata)
 {
 	static const char *tmapstr[] = {"None", "Reinhard", "ACES filmic"};
 	int id = (int)(unsigned long)cls;
+	XmScaleCallbackStruct *sdata;
 
 	switch(id) {
 	case 0:		/* gamma */
-		ropt.gammaval = xm_get_sliderf_value(w);
+		sdata = calldata;
+		ropt.gammaval = (float)sdata->value * 0.1f;
 		printf("gamma: %g\n", ropt.gammaval);
 		break;
 

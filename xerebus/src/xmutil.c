@@ -347,6 +347,9 @@ Widget xm_progress(Widget par)
 	XtSetArg(args[num], XmNorientation, XmHORIZONTAL); num++;
 	XtSetArg(args[num], XmNsliderVisual, XmFOREGROUND_COLOR); num++;
 	XtSetArg(args[num], XmNforeground, xm_named_color("red")); num++;
+#ifdef SgNslanted
+	XtSetArg(args[num], SgNslanted, True); num++;
+#endif
 	w = XmCreateScale(par, "progbar", args, num);
 	XtManageChild(w);
 
@@ -695,7 +698,7 @@ void xm_set_sliderf_value(Widget w, float val)
 	for(i=0; i<ndecimal; i++) {
 		s *= 10.0f;
 	}
-	XtVaSetValues(w, XmNvalue, (int)(val * s), (void*)0);
+	XmScaleSetValue(w, (int)(val * s));
 }
 
 float xm_get_sliderf_value(Widget w)
@@ -703,7 +706,8 @@ float xm_get_sliderf_value(Widget w)
 	int i, ival, ndecimal = 0;
 	float s = 1.0f;
 
-	XtVaGetValues(w, XmNvalue, &ival, XmNdecimalPoints, &ndecimal, (void*)0);
+	XtVaGetValues(w, XmNdecimalPoints, &ndecimal, (void*)0);
+	XmScaleGetValue(w, &ival);
 	for(i=0; i<ndecimal; i++) {
 		s *= 0.1f;
 	}
