@@ -36,7 +36,7 @@ Widget xm_frame(Widget par, const char *title)
 	XmString str = XmStringCreateSimple((char*)title);
 
 	w = XmCreateFrame(par, "frame", 0, 0);
-	XtSetArg(args[0], XmNframeChildType, XmFRAME_TITLE_CHILD);
+	XtSetArg(args[0], XmNchildType, XmFRAME_TITLE_CHILD);
 	XtSetArg(args[1], XmNlabelString, str);
 	XtManageChild(XmCreateLabelGadget(w, "label", args, 2));
 	XtManageChild(w);
@@ -803,7 +803,9 @@ const char *file_dialog(Widget shell, const char *start_dir, const char *filter,
 		xmstr_filter = XmStringCreateSimple((char*)filter);
 		XtSetArg(argv[argc], XmNdirMask, xmstr_filter), argc++;
 	}
+#if XmVERSION >= 2
 	XtSetArg(argv[argc], XmNpathMode, XmPATH_MODE_RELATIVE), argc++;
+#endif
 
 	if(bufsz < sizeof bufsz) {
 		fprintf(stderr, "file_dialog: insufficient buffer size: %d\n", bufsz);
@@ -1028,35 +1030,14 @@ Widget color_button(Widget par, int width, int height, int r, int g, int b,
 	return bn;
 }
 
-static char *msgbox_text;
-static int msgbox_textsz;
+static char msgbox_text[1024];
 
 #define MSGBOX_FORMAT_TEXT(fmt, dofail) \
 	do {	\
-		char *tmp; \
-		int len, newsz; \
 		va_list ap;	\
-		if(!msgbox_text) { \
-			msgbox_textsz = 256; \
-			if(!(msgbox_text = malloc(msgbox_textsz))) { \
-				perror("Failed to allocate messagebox text buffer"); \
-				dofail; \
-			} \
-		} \
-		for(;;) {	\
-			va_start(ap, fmt);	\
-			len = vsnprintf(msgbox_text, msgbox_textsz, fmt, ap);	\
-			va_end(ap);	\
-			if(len == strlen(msgbox_text)) break;	\
-			newsz = len == -1 ? msgbox_textsz << 1 : len + 1;	\
-			if(!(tmp = malloc(newsz))) {	\
-				fprintf(stderr, "Failed to resize messagebox buffer to %d bytes\n", newsz);	\
-				dofail;	\
-			}	\
-			free(msgbox_text);	\
-			msgbox_text = tmp;	\
-			msgbox_textsz = newsz;	\
-		}	\
+		va_start(ap, fmt);	\
+		vsprintf(msgbox_text, fmt, ap);	\
+		va_end(ap);	\
 	} while(0)
 
 void messagebox(int type, const char *title, const char *msg, ...)

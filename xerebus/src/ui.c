@@ -96,7 +96,11 @@ static void cb_rendopt(Widget w, void *cls, void *calldata)
 		break;
 
 	case 3:		/* samples spinbox */
+#ifdef HAVE_SPINBOX
 		ropt.nsamples = ((XmSpinBoxCallbackStruct*)calldata)->position;
+#else
+		ropt.nsamples = atoi(XmTextFieldGetString(w));
+#endif
 		printf("samples: %d\n", ropt.nsamples);
 		break;
 
