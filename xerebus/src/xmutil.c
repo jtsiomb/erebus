@@ -12,7 +12,6 @@ typedef unsigned int uint32;
 
 static void rgb_to_hsv(float r, float g, float b, float *h, float *s, float *v);
 static void hsv_to_rgb(float *r, float *g, float *b, float h, float s, float v);
-static char *wname(const char *prefix);
 
 extern XtAppContext app;
 extern Widget app_shell;
@@ -23,7 +22,7 @@ Widget xm_label(Widget par, const char *text)
 	Arg arg;
 	XmString str = XmStringCreateSimple((char*)text);
 	XtSetArg(arg, XmNlabelString, str);
-	w = XmCreateLabel(par, wname("label"), &arg, 1);
+	w = XmCreateLabel(par, "label", &arg, 1);
 	XmStringFree(str);
 	XtManageChild(w);
 	return w;
@@ -153,7 +152,7 @@ Widget xm_checkbox(Widget par, const char *text, int checked, XtCallbackProc cb,
 	XmString str = XmStringCreateSimple((char*)text);
 
 	XtSetArg(arg, XmNlabelString, str);
-	w = XmCreateToggleButton(par, wname("checkbox"), &arg, 1);
+	w = XmCreateToggleButton(par, "checkbox", &arg, 1);
 	XmToggleButtonSetState(w, checked, False);
 	XmStringFree(str);
 	XtManageChild(w);
@@ -168,7 +167,7 @@ Widget xm_textfield(Widget par, const char *text, XtCallbackProc cb, void *cls)
 {
 	Widget w;
 
-	w = XmCreateTextField(par, wname("textfield"), 0, 0);
+	w = XmCreateTextField(par, "textfield", 0, 0);
 	XtManageChild(w);
 
 	if(text) {
@@ -332,7 +331,7 @@ Widget xm_spinboxi(Widget par, int val, int min, int max, Bool edit, XtCallbackP
 	XtSetArg(args[num], XmNshadowThickness, 0); num++;
 	XtSetArg(args[num], XmNmarginHeight, 0); num++;
 	XtSetArg(args[num], XmNspacing, 0); num++;
-	w = XmCreateSimpleSpinBox(par, wname("sspin"), args, num);
+	w = XmCreateSimpleSpinBox(par, "sspin", args, num);
 
 	XtVaGetValues(w, XmNtextField, &tf, NULL);
 	XtVaSetValues(tf, XmNmarginHeight, 2, NULL);
@@ -343,7 +342,7 @@ Widget xm_spinboxi(Widget par, int val, int min, int max, Bool edit, XtCallbackP
 #else
 	/* TODO */
 	XtSetArg(args[num], XmNcolumns, max_cols); num++;
-	w = XmCreateTextField(par, wname("fakespin"), args, num);
+	w = XmCreateTextField(par, "fakespin", args, num);
 #endif
 	XtManageChild(w);
 	return w;
@@ -361,8 +360,7 @@ Widget xm_progress(Widget par)
 	XtSetArg(args[num], XmNvalue, 0); num++;
 	XtSetArg(args[num], XmNeditable, False); num++;
 	XtSetArg(args[num], XmNorientation, XmHORIZONTAL); num++;
-	XtSetArg(args[num], XmNshowValue, True), num++;
-	w = XmCreateScale(par, wname("progbar"), args, num);
+	w = XmCreateScale(par, "progbar", args, num);
 	XtManageChild(w);
 
 	return w;
@@ -1501,13 +1499,4 @@ static void hsv_to_rgb(float *r, float *g, float *b, float h, float s, float v)
 	case 4: RETRGB(q, o, v);
 	case 5: RETRGB(v, o, p);
 	}
-}
-
-
-static char *wname(const char *prefix)
-{
-	static int id;
-	static char buf[256];
-	sprintf(buf, "%s%04d", prefix, id++);
-	return buf;
 }

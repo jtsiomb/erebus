@@ -13,14 +13,14 @@ static void help_menu_handler(Widget lst, void *cls, void *calldata);
 
 Widget glview;
 
-static Widget win, lb_status;
+static Widget win, lb_status, progr_bar, progr_lb;
 
 
 int init_gui(void)
 {
 	Widget main;
 	Widget frm_view, frm_rend;
-	Widget vbox, vbox_ui, hbox;
+	Widget vbox, vbox_ui, hbox, form;
 	Widget w;
 
 	win = XmCreateMainWindow(app_shell, "mainwin", 0, 0);
@@ -70,8 +70,16 @@ int init_gui(void)
 	xm_rows_end();
 
 	xm_button(vbox_ui, "Render", cb_bnrend, 0);
-	w = xm_progress(vbox_ui);
-	xm_set_progress(w, 80);
+
+	form = xm_form(vbox_ui, 0);
+	progr_bar = xm_progress(form);
+	progr_lb = xm_label(form, "80%");
+
+	xm_attach_form(progr_lb, XM_TOP | XM_RIGHT);
+	xm_attach_form(progr_bar, XM_TOP | XM_LEFT);
+	xm_attach_widget(progr_bar, XM_RIGHT, progr_lb);
+
+	xm_set_progress(progr_bar, 80);
 
 	XtManageChild(main);
 
