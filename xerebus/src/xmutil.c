@@ -839,8 +839,7 @@ static void filesel_handler(Widget dlg, void *cls, void *calldata)
 		memcpy(&bufsz, buf, sizeof bufsz);
 		*buf = 0;
 
-		if(!(fname = XmStringUnparse(cbs->value, XmFONTLIST_DEFAULT_TAG, XmCHARSET_TEXT,
-						XmCHARSET_TEXT, 0, 0, XmOUTPUT_ALL))) {
+		if(!XmStringGetLtoR(cbs->value, XmFONTLIST_DEFAULT_TAG, &fname)) {
 			return;
 		}
 
