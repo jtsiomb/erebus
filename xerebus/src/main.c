@@ -32,8 +32,18 @@ const char *glrend, *glvendor, *glver;
 
 int main(int argc, char **argv)
 {
+#ifdef __sgi
+	static char *res[] = {
+		"*sgiMode: true",
+		"*useSchemes: all",
+		0
+	};
+#else
+	char **res = 0;
+#endif
+
 	if(!(app_shell = XtVaOpenApplication(&app, "xerebus", 0, 0, &argc, argv,
-					0, sessionShellWidgetClass, NULL))) {
+					res, sessionShellWidgetClass, NULL))) {
 		fprintf(stderr, "failed to initialize ui\n");
 		return 1;
 	}

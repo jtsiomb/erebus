@@ -185,10 +185,10 @@ Widget xm_option_menu(Widget par)
 	Widget w, wsub;
 	Arg arg;
 
-	w = XmCreatePulldownMenu(par, "pulldown", 0, 0);
+	w = XmCreatePulldownMenu(par, "optionPane", 0, 0);
 
 	XtSetArg(arg, XmNsubMenuId, w);
-	wsub = XmCreateOptionMenu(par, "optionmenu", &arg, 1);
+	wsub = XmCreateOptionMenu(par, "optionMenu", &arg, 1);
 	XtManageChild(wsub);
 	return w;
 }

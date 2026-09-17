@@ -28,8 +28,12 @@ int init_gui(void)
 
 	create_menu();
 
+#if XmVERSION >= 2
 	main = XtVaCreateWidget("main", xmPanedWindowWidgetClass, win,
 			XmNorientation, XmHORIZONTAL, NULL);
+#else
+	main = xm_rowcol(win, XmHORIZONTAL);
+#endif
 
 	glview = xm_gl(main, 640, 480, XM_GL_DOUBLE);
 	vbox_ui = xm_rowcol(main, XmVERTICAL);
