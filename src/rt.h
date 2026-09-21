@@ -61,6 +61,8 @@ struct tile {
 #endif
 
 	tinymt32_t rndstate;
+
+	struct tile *next;	/* for linking completed tiles in shm */
 };
 
 struct renderer {

@@ -118,17 +118,35 @@ void shmfb_start(int ntiles)
 {
 	sem_wait(&shmfb->sem);
 	shmfb->done_tiles = 0;
-	shmfb->total_tiles = ntiles;
+	shmfb->num_tiles = ntiles;
+	shmfb->done_list = 0;
 	sem_post(&shmfb->sem);
 }
 
-void shmfb_donetile(void)
+void shmfb_donetile(struct tile *tile)
 {
+	static char foo = '.';
+
 	sem_wait(&shmfb->sem);
-	if(shmfb->done_tiles < shmfb->total_tiles) {
+	if(shmfb->done_tiles < shmfb->num_tiles) {
 		shmfb->done_tiles++;
+
+		tile->next = shmfb->done_list;
+		shmfb->done_list = tile;
 	}
 	sem_post(&shmfb->sem);
+
+	write(2, &foo, 1);
+}
+
+struct tile *shmfb_get_done(void)
+{
+	struct tile *list;
+	sem_wait(&shmfb->sem);
+	list = shmfb->done_list;
+	shmfb->done_list = 0;
+	sem_post(&shmfb->sem);
+	return list;
 }
 
 int shmfb_rendering(void)
@@ -140,7 +158,7 @@ int shmfb_pending(void)
 {
 	int res;
 	sem_wait(&shmfb->sem);
-	res = shmfb->total_tiles - shmfb->done_tiles;
+	res = shmfb->num_tiles - shmfb->done_tiles;
 	sem_post(&shmfb->sem);
 	return res;
 }
@@ -149,8 +167,8 @@ int shmfb_progress(void)
 {
 	int progr;
 	sem_wait(&shmfb->sem);
-	if(shmfb->total_tiles) {
-		progr = (shmfb->done_tiles << 10) / shmfb->total_tiles;
+	if(shmfb->num_tiles) {
+		progr = (shmfb->done_tiles << 10) / shmfb->num_tiles;
 	} else {
 		progr = 1024;
 	}

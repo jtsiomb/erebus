@@ -16,11 +16,11 @@
 
 #define STATUSBAR_HEIGHT	32
 
+int proc_rend_inp(void);
 int spawn_renderer(int argc, char **argv);
 int init(void);
 void cleanup(void);
 void display(void);
-void idle(void);
 void reshape(int x, int y);
 void keypress(unsigned char key, int x, int y);
 void mouse(int bn, int st, int x, int y);
@@ -29,13 +29,14 @@ void glprintf(int x, int y, const char *fmt, ...);
 
 int parse_args(int argc, char **argv);
 
+extern Display *miniglut_dpy;
+static int redisp_pending;
 
 static char shmpath[64];
 static int found_size_arg;
 static int width = 1280;
 static int height = 720;
-static int rend_pid;
-static int pfd[2];
+static int rend_pid, rend_pipe;
 
 static unsigned int sdr;
 
@@ -43,11 +44,13 @@ static unsigned int sdr;
 static char st_text[2][STATUS_LEN + 1];
 static int st_cur, st_pg;
 
+static struct tile dirty[4096];
+static int ndirty;
+
 
 int main(int argc, char **argv)
 {
-	int sz;
-	char buf[64];
+	int xfd, maxfd;
 
 	if(parse_args(argc, argv) == -1) {
 		return 1;
@@ -63,7 +66,6 @@ int main(int argc, char **argv)
 	glutCreateWindow("erebus GUI");
 
 	glutDisplayFunc(display);
-	glutIdleFunc(idle);
 	glutReshapeFunc(reshape);
 	glutKeyboardFunc(keypress);
 	glutMouseFunc(mouse);
@@ -75,11 +77,70 @@ int main(int argc, char **argv)
 	}
 	atexit(cleanup);
 
+	xfd = ConnectionNumber(miniglut_dpy);
+	maxfd = xfd > rend_pipe ? xfd : rend_pipe;
+
 	for(;;) {
-		/* renderer pipe has messages */
-		while((sz = read(0, buf, sizeof buf)) > 0) {
-			char *src = buf;
+		fd_set rdset;
+
+		FD_ZERO(&rdset);
+		if(rend_pipe >= 0) {
+			FD_SET(rend_pipe, &rdset);
+		}
+		FD_SET(xfd, &rdset);
+
+		if(select(maxfd + 1, &rdset, 0, 0, 0) == -1) {
+			if(errno == EINTR) continue;
+			perror("select failed");
+			break;
+		}
+
+		if(rend_pipe >= 0 && FD_ISSET(rend_pipe, &rdset)) {
+			proc_rend_inp();
+		}
+
+		if(FD_ISSET(xfd, &rdset) || redisp_pending) {
+			printf("DBG X proc\n");
+			glutMainLoopEvent();
+		}
+	}
+	return 0;
+}
+
+int proc_rend_inp(void)
+{
+	static unsigned char *done_data = (unsigned char*)dirty;
+	static int done_idx = -1;
+
+	int sz;
+	char buf[64];
+
+	if((sz = read(rend_pipe, buf, sizeof buf)) == -1) {
+		return 0;
+	}
+
+	if(sz == 0) {
+		if(waitpid(rend_pid, 0, WNOHANG) == rend_pid) {
+			printf("renderer process exited\n");
+			close(rend_pipe);
+			rend_pipe = -1;
+			return -1;
+		}
+		return 0;
+	}
+
+	printf("DBG input pipe (%d)\n", sz);
+	while(sz > 0) {
+		char *src = buf;
+		if(done_idx == -1) {
 			char *dst = st_text[st_pg ^ 1];
+rdinp:		if(*src == 0) {
+				/* starting a tile completion data packet */
+				src++;
+				sz--;
+				goto rddone;
+			}
+
 			while(sz-- && st_cur < STATUS_LEN) {
 				int c = *src++;
 
@@ -89,15 +150,32 @@ int main(int argc, char **argv)
 					st_text[st_pg][st_cur] = 0;
 					st_cur = 0;
 					printf("INPUT: %s\n", st_text[st_pg]);
+					redisp_pending = 1;
 					glutPostRedisplay();
 
 				} else if(isprint(c)) {
 					dst[st_cur++] = c;
 				}
 			}
+		} else {
+rddone:		while(sz && done_idx < sizeof done_data) {
+				sz--;
+				done_data[done_idx++] = *src++;
+			}
+			if(done_idx >= sizeof done_data) {
+				/* process completion packet */
+				printf("pkt %d %d %d %d\n", dirty[ndirty].x, dirty[ndirty].y,
+						dirty[ndirty].width, dirty[ndirty].height);
+				ndirty++;
+				done_idx = -1;
+				goto rdinp;
+			}
 		}
+	}
 
-		glutMainLoopEvent();
+	if(ndirty) {
+		redisp_pending = 1;
+		glutPostRedisplay();
 	}
 	return 0;
 }
@@ -107,6 +185,7 @@ int spawn_renderer(int argc, char **argv)
 	static char szarg_buf[32];
 	int i, msg;
 	char **rend_argv;
+	int pfd[2];			/* renderer pipe */
 	int errpipe[2];		/* second pipe used to detect exec failure */
 
 	sprintf(shmpath, "/erebus-gui.%d", getpid());
@@ -171,13 +250,11 @@ int spawn_renderer(int argc, char **argv)
 	}
 	close(errpipe[0]);
 
-	/* replace stdin with read end of the pipe */
-	close(0);
-	dup(pfd[0]);
-	close(pfd[0]);
+	/* close write end of the pipe */
 	close(pfd[1]);
-	/* make it non-blocking since we're waiting on select */
-	fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+	/* make read-end non-blocking since we're waiting on select */
+	fcntl(pfd[0], F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+	rend_pipe = pfd[0];
 
 	/* map shared memory to get framebuffer size */
 	if(shmfb_create(shmpath, width, height) == -1) {
@@ -204,6 +281,7 @@ int init(void)
 	}
 	set_uniform_float(sdr, "inv_gamma", 1.0f / 2.2f);
 
+	ndirty = 0;
 	return 0;
 }
 
@@ -221,12 +299,22 @@ void cleanup(void)
 
 void updatefb(void)
 {
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_FLOAT, shmfb->pixels);
+	int i;
+	struct tile *tile = dirty;
+
+	for(i=0; i<ndirty; i++) {
+		glTexSubImage2D(GL_TEXTURE_2D, 0, tile->x, tile->y, tile->width, tile->height,
+				GL_RGBA, GL_FLOAT, shmfb->pixels);
+		tile++;
+	}
+	ndirty = 0;
 }
 
 void display(void)
 {
 	int progr;
+
+	redisp_pending = 0;
 
 	progr = shmfb_progress();
 
@@ -266,11 +354,6 @@ void display(void)
 
 	glutSwapBuffers();
 	assert(glGetError() == GL_NO_ERROR);
-}
-
-void idle(void)
-{
-	glutPostRedisplay();
 }
 
 void reshape(int x, int y)

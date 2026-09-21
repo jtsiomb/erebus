@@ -37,6 +37,7 @@ int main(int argc, char **argv)
 	}
 
 	setvbuf(stdout, 0, _IOLBF, 0);
+	setvbuf(stderr, 0, _IONBF, 0);
 	signal(SIGINT, sighandler);
 
 	if(opt.shm) {

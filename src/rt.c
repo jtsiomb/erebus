@@ -39,10 +39,12 @@ int fbsize(int width, int height)
 	 * and we shouldn't allocate memory for the pixels
 	 */
 	if(width > 0 && height > 0) {
+		assert(shmfb == 0);
 		if(!(fbptr = malloc(width * height * sizeof *fb.pixels))) {
 			return -1;
 		}
 	} else {
+		assert(shmfb);
 		fbptr = shmfb->pixels;
 		width = shmfb->width;
 		height = shmfb->height;
@@ -60,8 +62,13 @@ int fbsize(int width, int height)
 #endif
 	xtiles = (width + opt.tilesz - 1) / opt.tilesz;
 	ytiles = (height + opt.tilesz - 1) / opt.tilesz;
-	if(!(tileptr = malloc(xtiles * ytiles * sizeof *tiles))) {
-		goto err;
+
+	if(!shmfb) {
+		if(!(tileptr = malloc(xtiles * ytiles * sizeof *tiles))) {
+			goto err;
+		}
+	} else {
+		tileptr = shmfb->tiles;
 	}
 
 	fb.pixels = fbptr;
@@ -112,7 +119,10 @@ int fbsize(int width, int height)
 
 	return 0;
 err:
-	if(!shmfb) free(fbptr);
+	if(!shmfb) {
+		free(fbptr);
+		free(tileptr);
+	}
 #ifdef USE_OIDN
 	free(alb);
 	free(nptr);
@@ -223,7 +233,7 @@ static void render_tile(struct tile *tile)
 	}
 
 	if(shmfb) {
-		shmfb_donetile();
+		shmfb_donetile(tile);
 	} else if(opt.flags & OPT_PROGRESS) {
 		atomic_int_inc(&progr_done_tiles);
 	}
