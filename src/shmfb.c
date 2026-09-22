@@ -42,6 +42,8 @@ int shmfb_create(const char *path, int w, int h)
 
 	shmfb->width = w;
 	shmfb->height = h;
+	shmfb->done_tiles = shmfb->num_tiles = 0;
+	shmfb->done_list = 0;
 
 	sem_init(&shmfb->sem, 1, 1);
 	return 0;
@@ -125,7 +127,7 @@ void shmfb_start(int ntiles)
 
 void shmfb_donetile(struct tile *tile)
 {
-	static char foo = '.';
+	static char zero;
 
 	sem_wait(&shmfb->sem);
 	if(shmfb->done_tiles < shmfb->num_tiles) {
@@ -136,7 +138,7 @@ void shmfb_donetile(struct tile *tile)
 	}
 	sem_post(&shmfb->sem);
 
-	write(2, &foo, 1);
+	write(2, &zero, 1);
 }
 
 struct tile *shmfb_get_done(void)

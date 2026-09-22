@@ -44,9 +44,6 @@ static unsigned int sdr;
 static char st_text[2][STATUS_LEN + 1];
 static int st_cur, st_pg;
 
-static struct tile dirty[4096];
-static int ndirty;
-
 
 int main(int argc, char **argv)
 {
@@ -109,9 +106,6 @@ int main(int argc, char **argv)
 
 int proc_rend_inp(void)
 {
-	static unsigned char *done_data = (unsigned char*)dirty;
-	static int done_idx = -1;
-
 	int sz;
 	char buf[64];
 
@@ -132,50 +126,31 @@ int proc_rend_inp(void)
 	printf("DBG input pipe (%d)\n", sz);
 	while(sz > 0) {
 		char *src = buf;
-		if(done_idx == -1) {
-			char *dst = st_text[st_pg ^ 1];
-rdinp:		if(*src == 0) {
-				/* starting a tile completion data packet */
-				src++;
-				sz--;
-				goto rddone;
-			}
+		char *dst = st_text[st_pg ^ 1];
 
-			while(sz-- && st_cur < STATUS_LEN) {
-				int c = *src++;
+		if(*src == 0) {
+			redisp_pending = 1;
+			glutPostRedisplay();
+			src++;
+			sz--;
+		}
 
-				if(c == '\n') {
-					dst = st_text[st_pg];
-					st_pg ^= 1;
-					st_text[st_pg][st_cur] = 0;
-					st_cur = 0;
-					printf("INPUT: %s\n", st_text[st_pg]);
-					redisp_pending = 1;
-					glutPostRedisplay();
+		while(sz-- && st_cur < STATUS_LEN) {
+			int c = *src++;
 
-				} else if(isprint(c)) {
-					dst[st_cur++] = c;
-				}
-			}
-		} else {
-rddone:		while(sz && done_idx < sizeof done_data) {
-				sz--;
-				done_data[done_idx++] = *src++;
-			}
-			if(done_idx >= sizeof done_data) {
-				/* process completion packet */
-				printf("pkt %d %d %d %d\n", dirty[ndirty].x, dirty[ndirty].y,
-						dirty[ndirty].width, dirty[ndirty].height);
-				ndirty++;
-				done_idx = -1;
-				goto rdinp;
+			if(c == '\n') {
+				dst = st_text[st_pg];
+				st_pg ^= 1;
+				st_text[st_pg][st_cur] = 0;
+				st_cur = 0;
+				printf("INPUT: %s\n", st_text[st_pg]);
+				redisp_pending = 1;
+				glutPostRedisplay();
+
+			} else if(isprint(c)) {
+				dst[st_cur++] = c;
 			}
 		}
-	}
-
-	if(ndirty) {
-		redisp_pending = 1;
-		glutPostRedisplay();
 	}
 	return 0;
 }
@@ -276,12 +251,12 @@ int init(void)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
 
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, width);
+
 	if(!(sdr = create_program_load("sdr/vertex.glsl", "sdr/pixel.glsl"))) {
 		return -1;
 	}
 	set_uniform_float(sdr, "inv_gamma", 1.0f / 2.2f);
-
-	ndirty = 0;
 	return 0;
 }
 
@@ -299,21 +274,20 @@ void cleanup(void)
 
 void updatefb(void)
 {
-	int i;
-	struct tile *tile = dirty;
+	struct tile *tile;
 
-	for(i=0; i<ndirty; i++) {
+	tile = shmfb_get_done();
+	while(tile) {
+		printf("update tile: %d %d  %dx%d\n", tile->x, tile->y, tile->width, tile->height);
 		glTexSubImage2D(GL_TEXTURE_2D, 0, tile->x, tile->y, tile->width, tile->height,
-				GL_RGBA, GL_FLOAT, shmfb->pixels);
-		tile++;
+				GL_RGBA, GL_FLOAT, tile->fbptr);
+		tile = tile->next;
 	}
-	ndirty = 0;
 }
 
 void display(void)
 {
 	int progr;
-
 	redisp_pending = 0;
 
 	progr = shmfb_progress();
