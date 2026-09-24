@@ -14,7 +14,8 @@ enum opt_tonemap {
 };
 
 enum {
-	OPT_PROGRESS = 1
+	OPT_PROGRESS	= 1,
+	OPT_WAIT		= 0x800000
 };
 
 struct options {

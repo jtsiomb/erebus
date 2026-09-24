@@ -56,13 +56,11 @@ struct tile {
 	int x, y, width, height;
 	int sample;
 	cgm_vec4 *fbptr;
-#ifdef USE_OIDN
 	cgm_vec3 *nptr, *albptr;
-#endif
 
 	tinymt32_t rndstate;
 
-	struct tile *next;	/* for linking completed tiles in shm */
+	int next;
 };
 
 struct renderer {

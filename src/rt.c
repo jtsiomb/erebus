@@ -189,6 +189,10 @@ static void render_tile(struct tile *tile)
 	cgm_vec3 *alb = tile->albptr;
 #endif
 
+	if(shmfb) {
+		shmfb_tile_start(tile);
+	}
+
 	curtile = tile;
 
 	for(i=0; i<tile->height; i++) {
@@ -233,7 +237,7 @@ static void render_tile(struct tile *tile)
 	}
 
 	if(shmfb) {
-		shmfb_donetile(tile);
+		shmfb_tile_done(tile);
 	} else if(opt.flags & OPT_PROGRESS) {
 		atomic_int_inc(&progr_done_tiles);
 	}

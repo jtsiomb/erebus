@@ -16,7 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #if defined(unix) || defined(__unix__)
-
+#include <errno.h>
+#include <sys/select.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 #include <X11/cursorfont.h>
@@ -91,6 +92,11 @@ struct font {
 	int height, width[NUM_GLYPHS];
 };
 
+struct ext_input {
+	glut_extinput_type inp;
+	glut_cb_extinput func;
+};
+
 static void cleanup(void);
 static void create_window(const char *title);
 static void get_window_pos(int *x, int *y);
@@ -138,6 +144,10 @@ static int has_sball, sball_nbuttons;
 static struct font fonts[NUM_FONTS];
 
 static int have_swap_control_tear;
+
+#define MAX_EXT_INPUTS	16
+static struct ext_input extinp[MAX_EXT_INPUTS];
+static int num_extinp;
 
 
 void glutInit(int *argc, char **argv)
@@ -201,6 +211,8 @@ void glutInit(int *argc, char **argv)
 	for(i=0; i<NUM_FONTS; i++) {
 		fonts[i].listbase = -1;	/* mark un-initialized */
 	}
+
+	num_extinp = 0;
 }
 
 void glutInitWindowPosition(int x, int y)
@@ -358,6 +370,28 @@ void glutSpaceballRotateFunc(glut_cb_sbmotion func)
 void glutSpaceballButtonFunc(glut_cb_sbbutton func)
 {
 	cb_sball_button = func;
+}
+
+void glutExtInputFunc(glut_extinput_type inp, glut_cb_extinput func)
+{
+	int i;
+
+	for(i=0; i<num_extinp; i++) {
+		if(extinp[i].inp == inp) {
+			extinp[i].func = func;
+			if(!func) {
+				extinp[i].inp = -1;
+			}
+			return;
+		}
+	}
+
+	if(!func || num_extinp >= MAX_EXT_INPUTS) {
+		return;
+	}
+
+	extinp[num_extinp].inp = inp;
+	extinp[num_extinp++].func = func;
 }
 
 int glutGet(unsigned int s)
@@ -544,21 +578,64 @@ static glx_swap_interval_sgi_func glx_swap_interval_sgi;
 
 void glutMainLoopEvent(void)
 {
+	int i, fd, xfd, maxfd, res;
+	static struct timeval tv0;
+	struct timeval *tvptr;
+	fd_set rdset;
 	XEvent ev;
 
 	if(!cb_display) {
 		panic("display callback not set");
 	}
 
-	if(!upd_pending && !cb_idle) {
-		XNextEvent(dpy, &ev);
-		handle_event(&ev);
-		if(quit) goto end;
+	tvptr = (upd_pending || cb_idle) ? &tv0 : 0;
+
+	xfd = ConnectionNumber(dpy);
+	maxfd = xfd;
+
+	do {
+		FD_ZERO(&rdset);
+		FD_SET(xfd, &rdset);
+
+		for(i=0; i<num_extinp; i++) {
+			fd = extinp[i].inp;
+			FD_SET(fd, &rdset);
+			if(fd > maxfd) {
+				maxfd = fd;
+			}
+		}
+	} while((res = select(maxfd + 1, &rdset, 0, 0, tvptr)) == -1 && errno == EINTR);
+
+	if(res == -1) panic("select failed");
+	if(!res) return;
+
+	for(i=0; i<num_extinp; i++) {
+		fd = extinp[i].inp;
+		if(FD_ISSET(fd, &rdset)) {
+			extinp[i].func(fd);
+		}
 	}
-	while(XPending(dpy)) {
-		XNextEvent(dpy, &ev);
-		handle_event(&ev);
-		if(quit) goto end;
+
+	/* perform deferred removal of external inputs */
+	i = 0;
+	while(i < num_extinp) {
+		if(extinp[i].inp < 0) {
+			if(num_extinp > 1 && i < num_extinp - 1) {
+				extinp[i] = extinp[--num_extinp];
+			} else {
+				num_extinp--;
+			}
+		} else {
+			i++;
+		}
+	}
+
+	if(FD_ISSET(xfd, &rdset)) {
+		while(XPending(dpy)) {
+			XNextEvent(dpy, &ev);
+			handle_event(&ev);
+			if(quit) goto end;
+		}
 	}
 
 	if(cb_idle) {

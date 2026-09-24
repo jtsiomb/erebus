@@ -4,10 +4,10 @@
 #include <errno.h>
 #include <assert.h>
 #include <stdarg.h>
+#include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/wait.h>
-#include <sys/select.h>
 #include <X11/Xlib.h>
 #include "glew.h"
 #include "miniglut.h"
@@ -16,7 +16,7 @@
 
 #define STATUSBAR_HEIGHT	32
 
-int proc_rend_inp(void);
+void procinput(int fd);
 int spawn_renderer(int argc, char **argv);
 int init(void);
 void cleanup(void);
@@ -27,16 +27,18 @@ void mouse(int bn, int st, int x, int y);
 void motion(int x, int y);
 void glprintf(int x, int y, const char *fmt, ...);
 
+void sighandler(int s);
+
 int parse_args(int argc, char **argv);
 
 extern Display *miniglut_dpy;
-static int redisp_pending;
 
 static char shmpath[64];
 static int found_size_arg;
 static int width = 1280;
 static int height = 720;
 static int rend_pid, rend_pipe;
+static int opt_wait;
 
 static unsigned int sdr;
 
@@ -47,10 +49,16 @@ static int st_cur, st_pg;
 
 int main(int argc, char **argv)
 {
-	int xfd, maxfd;
-
 	if(parse_args(argc, argv) == -1) {
 		return 1;
+	}
+
+	/* map shared memory to get framebuffer size */
+	sprintf(shmpath, "/erebus-gui.%d", getpid());
+	if(shmfb_create(shmpath, width, height) == -1) {
+		kill(rend_pid, SIGINT);
+		wait(0);
+		return -1;
 	}
 
 	if(spawn_renderer(argc, argv) == -1) {
@@ -68,59 +76,35 @@ int main(int argc, char **argv)
 	glutMouseFunc(mouse);
 	glutMotionFunc(motion);
 	glutPassiveMotionFunc(motion);
+	glutExtInputFunc(rend_pipe, procinput);
 
 	if(init() == -1) {
 		return 1;
 	}
 	atexit(cleanup);
 
-	xfd = ConnectionNumber(miniglut_dpy);
-	maxfd = xfd > rend_pipe ? xfd : rend_pipe;
-
-	for(;;) {
-		fd_set rdset;
-
-		FD_ZERO(&rdset);
-		if(rend_pipe >= 0) {
-			FD_SET(rend_pipe, &rdset);
-		}
-		FD_SET(xfd, &rdset);
-
-		if(select(maxfd + 1, &rdset, 0, 0, 0) == -1) {
-			if(errno == EINTR) continue;
-			perror("select failed");
-			break;
-		}
-
-		if(rend_pipe >= 0 && FD_ISSET(rend_pipe, &rdset)) {
-			proc_rend_inp();
-		}
-
-		if(FD_ISSET(xfd, &rdset) || redisp_pending) {
-			printf("DBG X proc\n");
-			glutMainLoopEvent();
-		}
-	}
+	glutMainLoop();
 	return 0;
 }
 
-int proc_rend_inp(void)
+void procinput(int fd)
 {
 	int sz;
 	char buf[64];
 
 	if((sz = read(rend_pipe, buf, sizeof buf)) == -1) {
-		return 0;
+		return;
 	}
 
 	if(sz == 0) {
 		if(waitpid(rend_pid, 0, WNOHANG) == rend_pid) {
 			printf("renderer process exited\n");
+			glutExtInputFunc(rend_pipe, 0);
 			close(rend_pipe);
 			rend_pipe = -1;
-			return -1;
 		}
-		return 0;
+		glutPostRedisplay();
+		return;
 	}
 
 	printf("DBG input pipe (%d)\n", sz);
@@ -129,7 +113,6 @@ int proc_rend_inp(void)
 		char *dst = st_text[st_pg ^ 1];
 
 		if(*src == 0) {
-			redisp_pending = 1;
 			glutPostRedisplay();
 			src++;
 			sz--;
@@ -144,7 +127,6 @@ int proc_rend_inp(void)
 				st_text[st_pg][st_cur] = 0;
 				st_cur = 0;
 				printf("INPUT: %s\n", st_text[st_pg]);
-				redisp_pending = 1;
 				glutPostRedisplay();
 
 			} else if(isprint(c)) {
@@ -152,7 +134,6 @@ int proc_rend_inp(void)
 			}
 		}
 	}
-	return 0;
 }
 
 int spawn_renderer(int argc, char **argv)
@@ -162,8 +143,6 @@ int spawn_renderer(int argc, char **argv)
 	char **rend_argv;
 	int pfd[2];			/* renderer pipe */
 	int errpipe[2];		/* second pipe used to detect exec failure */
-
-	sprintf(shmpath, "/erebus-gui.%d", getpid());
 
 	pipe(pfd);
 
@@ -202,6 +181,9 @@ int spawn_renderer(int argc, char **argv)
 		}
 		rend_argv[i++] = "-shm";
 		rend_argv[i++] = shmpath;
+		if(opt_wait) {
+			rend_argv[i++] = "-wait";	/* wait for SIGCONT near the start of main */
+		}
 		rend_argv[i] = 0;
 
 		/* add parent dir to the PATH if the binary is there */
@@ -231,13 +213,7 @@ int spawn_renderer(int argc, char **argv)
 	fcntl(pfd[0], F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
 	rend_pipe = pfd[0];
 
-	/* map shared memory to get framebuffer size */
-	if(shmfb_create(shmpath, width, height) == -1) {
-		kill(rend_pid, SIGINT);
-		wait(0);
-		return -1;
-	}
-
+	printf("spawned renderer process: %d\n", rend_pid);
 	return 0;
 }
 
@@ -274,21 +250,26 @@ void cleanup(void)
 
 void updatefb(void)
 {
+	int tileidx;
 	struct tile *tile;
 
-	tile = shmfb_get_done();
-	while(tile) {
+	/*
+	tileidx = shmfb_get_donelist();
+	while(tileidx != -1) {
+		tile = shmfb->tiles + tileidx;
+		tileidx = tile->next;
+
 		printf("update tile: %d %d  %dx%d\n", tile->x, tile->y, tile->width, tile->height);
 		glTexSubImage2D(GL_TEXTURE_2D, 0, tile->x, tile->y, tile->width, tile->height,
 				GL_RGBA, GL_FLOAT, tile->fbptr);
-		tile = tile->next;
 	}
+	*/
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_FLOAT, shmfb->pixels);
 }
 
 void display(void)
 {
 	int progr;
-	redisp_pending = 0;
 
 	progr = shmfb_progress();
 
@@ -345,6 +326,10 @@ void keypress(unsigned char key, int x, int y)
 	case 27:
 		exit(0);
 
+	case ' ':
+		kill(rend_pid, SIGCONT);
+		break;
+
 	default:
 		break;
 	}
@@ -356,6 +341,13 @@ void mouse(int bn, int st, int x, int y)
 
 void motion(int x, int y)
 {
+}
+
+void sighandler(int s)
+{
+	if(s == SIGCHLD) {
+		close(rend_pipe);
+	}
 }
 
 /* silently ignores all arguments we don't need, the rest will be passed on to
@@ -373,6 +365,9 @@ int parse_args(int argc, char **argv)
 					return -1;
 				}
 				found_size_arg = 1;
+
+			} else if(strcmp(argv[i], "-wait") == 0) {
+				opt_wait = 1;
 			}
 		}
 	}

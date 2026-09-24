@@ -121,6 +121,9 @@ int parse_args(int argc, char **argv)
 				}
 				opt.shm = argv[i];
 
+			} else if(strcmp(argv[i], "-wait") == 0) {
+				opt.flags |= OPT_WAIT;
+
 			} else if(strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "-help") == 0) {
 				printf(usage_text[0], argv[0]);
 				for(i=1; usage_text[i]; i++) {

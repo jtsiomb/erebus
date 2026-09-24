@@ -166,6 +166,12 @@ enum {
 	GLUT_BITMAP_HELVETICA_18
 };
 
+#ifdef _WIN32
+typedef HANDLE glut_extinput_type;
+#else
+typedef int glut_extinput_type;
+#endif
+
 typedef void (*glut_cb)(void);
 typedef void (*glut_cb_reshape)(int x, int y);
 typedef void (*glut_cb_state)(int state);
@@ -175,6 +181,7 @@ typedef void (*glut_cb_mouse)(int bn, int state, int x, int y);
 typedef void (*glut_cb_motion)(int x, int y);
 typedef void (*glut_cb_sbmotion)(int x, int y, int z);
 typedef void (*glut_cb_sbbutton)(int bn, int state);
+typedef void (*glut_cb_extinput)(glut_extinput_type inp);
 
 #ifdef __cplusplus
 extern "C" {
@@ -220,6 +227,8 @@ void glutPassiveMotionFunc(glut_cb_motion func);
 void glutSpaceballMotionFunc(glut_cb_sbmotion func);
 void glutSpaceballRotateFunc(glut_cb_sbmotion func);
 void glutSpaceballButtonFunc(glut_cb_sbbutton func);
+
+void glutExtInputFunc(glut_extinput_type inp, glut_cb_extinput func);
 
 int glutGet(unsigned int s);
 int glutGetModifiers(void);

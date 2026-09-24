@@ -40,6 +40,10 @@ int main(int argc, char **argv)
 	setvbuf(stderr, 0, _IONBF, 0);
 	signal(SIGINT, sighandler);
 
+	if(opt.flags & OPT_WAIT) {
+		raise(SIGSTOP);
+	}
+
 	if(opt.shm) {
 		if(shmfb_map(opt.shm) == -1) {
 			return 1;

@@ -43,7 +43,7 @@ int shmfb_create(const char *path, int w, int h)
 	shmfb->width = w;
 	shmfb->height = h;
 	shmfb->done_tiles = shmfb->num_tiles = 0;
-	shmfb->done_list = 0;
+	shmfb->done_list = -1;
 
 	sem_init(&shmfb->sem, 1, 1);
 	return 0;
@@ -116,37 +116,70 @@ void shmfb_destroy(void)
 	shmfb_unmap();
 }
 
+void shmfb_lock(void)
+{
+	sem_wait(&shmfb->sem);
+}
+
+void shmfb_unlock(void)
+{
+	sem_post(&shmfb->sem);
+}
+
 void shmfb_start(int ntiles)
 {
 	sem_wait(&shmfb->sem);
 	shmfb->done_tiles = 0;
 	shmfb->num_tiles = ntiles;
-	shmfb->done_list = 0;
+	shmfb->done_list = -1;
+	memset(shmfb->act_tiles, 0, sizeof shmfb->act_tiles);
 	sem_post(&shmfb->sem);
+	printf("DBG: shmfb_start\n");
 }
 
-void shmfb_donetile(struct tile *tile)
+static unsigned char zero;
+
+void shmfb_tile_start(struct tile *tile)
 {
-	static char zero;
+	int tidx = tile - shmfb->tiles;
+	int bmidx = tidx >> 5;
+	int bit = tidx & 31;
+
+	sem_wait(&shmfb->sem);
+	shmfb->act_tiles[bmidx] |= 1 << bit;
+	printf("DBG: start tile %d (bit %d @ %d)\n", tidx, bit, bmidx);
+	sem_post(&shmfb->sem);
+
+	write(2, &zero, 1);
+}
+
+void shmfb_tile_done(struct tile *tile)
+{
+	int tidx = tile - shmfb->tiles;
+	int bmidx = tidx >> 5;
+	int bit = tidx & 31;
 
 	sem_wait(&shmfb->sem);
 	if(shmfb->done_tiles < shmfb->num_tiles) {
 		shmfb->done_tiles++;
 
+		shmfb->act_tiles[bmidx] &= ~(1 << bit);
+
 		tile->next = shmfb->done_list;
-		shmfb->done_list = tile;
+		shmfb->done_list = tile - shmfb->tiles;
+		printf("DBG: done tile %d\n", shmfb->done_list);
 	}
 	sem_post(&shmfb->sem);
 
 	write(2, &zero, 1);
 }
 
-struct tile *shmfb_get_done(void)
+int shmfb_get_donelist(void)
 {
-	struct tile *list;
+	int list;
 	sem_wait(&shmfb->sem);
 	list = shmfb->done_list;
-	shmfb->done_list = 0;
+	shmfb->done_list = -1;
 	sem_post(&shmfb->sem);
 	return list;
 }
