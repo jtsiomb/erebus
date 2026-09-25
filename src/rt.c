@@ -121,7 +121,6 @@ int fbsize(int width, int height)
 
 	/* sort tiles to render the center of the image first */
 	qsort(tiles, num_tiles, sizeof *tiles, tilesortcmp);
-
 	return 0;
 err:
 	if(!shmfb) {
@@ -150,12 +149,17 @@ void render(int samplenum)
 
 	if(!samplenum) {
 		if(shmfb) {
+			shmfb->total_samples = opt.nsamples;
 			shmfb_start(num_tiles * opt.nsamples);
 		} else if(opt.flags & OPT_PROGRESS) {
 			atomic_int_zero(&progr_done_tiles);
 			progr_total_tiles = num_tiles * opt.nsamples;
 		}
 	}
+
+	shmfb_lock();
+	shmfb->cur_sample = samplenum;
+	shmfb_unlock();
 
 	for(i=0; i<num_tiles; i++) {
 		tiles[i].sample = samplenum;

@@ -14,6 +14,8 @@
 #include "shmfb.h"
 #include "sdr.h"
 
+#define STATUS_FONT		GLUT_BITMAP_HELVETICA_18
+
 struct rect {
 	int x, y, w, h;
 };
@@ -49,6 +51,7 @@ static unsigned int sdr;
 #define STATUS_LEN		80
 static char st_text[2][STATUS_LEN + 1];
 static int st_cur, st_pg;
+static int xpos_prog, xpos_samp;
 
 static int full_redraw;
 
@@ -240,6 +243,9 @@ int init(void)
 		return -1;
 	}
 	set_uniform_float(sdr, "inv_gamma", 1.0f / 2.2f);
+
+	xpos_samp = glutBitmapLength(STATUS_FONT, "888/888 samples");
+	xpos_prog = glutBitmapLength(STATUS_FONT, "100%00") + xpos_samp;
 	return 0;
 }
 
@@ -257,57 +263,71 @@ void cleanup(void)
 
 void updatefb(void)
 {
-	int i, tileidx, num_tiles, num_done, bmidx;
+	int tileidx, num_done, num_act, bmidx;
 	uint32_t bit;
 	struct tile *tile;
-	int done_list[MAX_SHM_TILES];
-	uint32_t act_tiles[TILES_BM_LEN];
+	uint32_t done_tiles[TILES_BM_LEN], act_tiles[TILES_BM_LEN];
 
 	num_active = 0;
 
 	if(full_redraw) {
-		full_redraw = 0;
+full:	full_redraw = 0;
 		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, shmfb->width, shmfb->height,
 				GL_RGBA, GL_FLOAT, shmfb->pixels);
 	} else {
 		shmfb_lock();
-		num_tiles = shmfb->num_tiles;
+		num_done = shmfb->num_done;
+		num_act = shmfb->num_active;
 
 		/* copy the list of completed tiles */
-		num_done = 0;
-		tileidx = shmfb->done_list;
-		while(tileidx != -1) {
-			assert(num_done < MAX_SHM_TILES);
-			tile = shmfb->tiles + tileidx;
-			done_list[num_done++] = tileidx;
-			tileidx = tile->next;
-		}
-		shmfb->done_list = -1;
-
+		memcpy(done_tiles, shmfb->done_tiles, sizeof done_tiles);
 		memcpy(act_tiles, shmfb->act_tiles, sizeof act_tiles);
+
+		shmfb->num_done = 0;
+		memset(shmfb->done_tiles, 0, sizeof shmfb->done_tiles);
 		shmfb_unlock();
-
-		for(i=0; i<num_done; i++) {
-			tile = shmfb->tiles + done_list[i];
-
-			glTexSubImage2D(GL_TEXTURE_2D, 0, tile->x, tile->y, tile->width,
-					tile->height, GL_RGBA, GL_FLOAT, shmfb->pixels + tile->fboffs);
-		}
 
 		bmidx = 0;
 		bit = 1;
-		for(i=0; i<num_tiles; i++) {
+		tileidx = 0;
+		while(num_act > 0) {
 			if(act_tiles[bmidx] & bit) {
-				active[num_active].x = shmfb->tiles[i].x;
-				active[num_active].y = shmfb->tiles[i].y;
-				active[num_active].w = shmfb->tiles[i].width;
-				active[num_active++].h = shmfb->tiles[i].height;
+				tile = shmfb->tiles + tileidx;
+				active[num_active].x = tile->x;
+				active[num_active].y = tile->y;
+				active[num_active].w = tile->width;
+				active[num_active++].h = tile->height;
+				num_act--;
 			}
 			bit <<= 1;
 			if(!bit) {
 				bit = 1;
 				bmidx++;
 			}
+			tileidx++;
+		}
+
+		if(num_done >= MAX_SHM_TILES) {
+			/* TODO: maybe even if a large fraction of the tiles need updating? */
+			goto full;
+		}
+
+		bmidx = 0;
+		bit = 1;
+		tileidx = 0;
+		while(num_done > 0) {
+			if(done_tiles[bmidx] & bit) {
+				tile = shmfb->tiles + tileidx;
+				glTexSubImage2D(GL_TEXTURE_2D, 0, tile->x, tile->y, tile->width,
+						tile->height, GL_RGBA, GL_FLOAT, shmfb->pixels + tile->fboffs);
+				num_done--;
+			}
+			bit <<= 1;
+			if(!bit) {
+				bit = 1;
+				bmidx++;
+			}
+			tileidx++;
 		}
 	}
 }
@@ -345,14 +365,18 @@ void display(void)
 
 	bind_program(0);
 
-	glBegin(GL_QUADS);
+	glBegin(GL_LINES);
 	rect = active;
 	for(i=0; i<num_active; i++) {
-		glColor3f(0, 1, 0);
+		glColor3f(0, 0.5, 0);
 		glVertex2f(rect->x, rect->y);
 		glVertex2f(rect->x + rect->w, rect->y);
+		glVertex2f(rect->x + rect->w, rect->y);
+		glVertex2f(rect->x + rect->w, rect->y + rect->h);
 		glVertex2f(rect->x + rect->w, rect->y + rect->h);
 		glVertex2f(rect->x, rect->y + rect->h);
+		glVertex2f(rect->x, rect->y + rect->h);
+		glVertex2f(rect->x, rect->y);
 		rect++;
 	}
 	glEnd();
@@ -364,6 +388,9 @@ void display(void)
 
 	glColor3f(1, 1, 1);
 	glprintf(10, 10, st_text[st_pg]);
+
+	glprintf(width - xpos_prog, 10, "%3d%%", (progr * 100) >> 10);
+	glprintf(width - xpos_samp, 10, "%3d/%-3d samples", shmfb->cur_sample, shmfb->total_samples);
 
 	glutSwapBuffers();
 	assert(glGetError() == GL_NO_ERROR);
@@ -448,7 +475,7 @@ void glprintf(int x, int y, const char *fmt, ...)
 	vsnprintf(buf, sizeof buf, fmt, ap);
 	va_end(ap);
 
-	glutBitmapString(GLUT_BITMAP_HELVETICA_18, buf);
+	glutBitmapString(STATUS_FONT, buf);
 
 	glPopMatrix();
 }

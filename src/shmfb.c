@@ -42,8 +42,7 @@ int shmfb_create(const char *path, int w, int h)
 
 	shmfb->width = w;
 	shmfb->height = h;
-	shmfb->num_done = shmfb->num_tiles = 0;
-	shmfb->done_list = -1;
+	shmfb->total_done = shmfb->total_tiles = 0;
 
 	sem_init(&shmfb->sem, 1, 1);
 	return 0;
@@ -129,10 +128,12 @@ void shmfb_unlock(void)
 void shmfb_start(int ntiles)
 {
 	sem_wait(&shmfb->sem);
-	shmfb->num_done = 0;
-	shmfb->num_tiles = ntiles;
-	shmfb->done_list = -1;
+	shmfb->total_done = 0;
+	shmfb->total_tiles = ntiles;
+	shmfb->num_done = shmfb->num_active = 0;
+	memset(shmfb->done_tiles, 0, sizeof shmfb->done_tiles);
 	memset(shmfb->act_tiles, 0, sizeof shmfb->act_tiles);
+	shmfb->cur_sample = 0;
 	sem_post(&shmfb->sem);
 }
 
@@ -146,6 +147,7 @@ void shmfb_tile_start(struct tile *tile)
 
 	sem_wait(&shmfb->sem);
 	shmfb->act_tiles[bmidx] |= 1 << bit;
+	shmfb->num_active++;
 	sem_post(&shmfb->sem);
 
 	write(2, &zero, 1);
@@ -158,26 +160,18 @@ void shmfb_tile_done(struct tile *tile)
 	int bit = tidx & 31;
 
 	sem_wait(&shmfb->sem);
-	if(shmfb->num_done < shmfb->num_tiles) {
-		shmfb->num_done++;
-
-		tile->next = shmfb->done_list;
-		shmfb->done_list = tile - shmfb->tiles;
+	if(shmfb->total_done < shmfb->total_tiles) {
+		shmfb->total_done++;
 	}
+	shmfb->done_tiles[bmidx] |= 1 << bit;
 	shmfb->act_tiles[bmidx] &= ~(1 << bit);
+	shmfb->num_done++;
+	if(shmfb->num_active > 0) {
+		shmfb->num_active--;
+	}
 	sem_post(&shmfb->sem);
 
 	write(2, &zero, 1);
-}
-
-int shmfb_get_donelist(void)
-{
-	int list;
-	sem_wait(&shmfb->sem);
-	list = shmfb->done_list;
-	shmfb->done_list = -1;
-	sem_post(&shmfb->sem);
-	return list;
 }
 
 int shmfb_rendering(void)
@@ -189,7 +183,7 @@ int shmfb_pending(void)
 {
 	int res;
 	sem_wait(&shmfb->sem);
-	res = shmfb->num_tiles - shmfb->num_done;
+	res = shmfb->total_tiles - shmfb->total_done;
 	sem_post(&shmfb->sem);
 	return res;
 }
@@ -198,8 +192,8 @@ int shmfb_progress(void)
 {
 	int progr;
 	sem_wait(&shmfb->sem);
-	if(shmfb->num_tiles) {
-		progr = (shmfb->num_done << 10) / shmfb->num_tiles;
+	if(shmfb->total_tiles) {
+		progr = (shmfb->total_done << 10) / shmfb->total_tiles;
 	} else {
 		progr = 1024;
 	}

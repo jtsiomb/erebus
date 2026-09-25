@@ -12,10 +12,13 @@ struct sharedfb {
 	int width, height;
 
 	sem_t sem;
-	int num_done, num_tiles;
+	int cur_sample, total_samples;
+	int total_done, total_tiles;	/* total over the whole render */
 
-	int done_list;
 	struct tile tiles[MAX_SHM_TILES];
+
+	int num_done, num_active;
+	uint32_t done_tiles[TILES_BM_LEN];
 	uint32_t act_tiles[TILES_BM_LEN];
 
 	cgm_vec4 pixels[1];
@@ -36,7 +39,6 @@ void shmfb_unmap(void);
 void shmfb_start(int ntiles);
 void shmfb_tile_start(struct tile *tile);
 void shmfb_tile_done(struct tile *tile);
-int shmfb_get_donelist(void);
 
 int shmfb_rendering(void);		/* non-zero if currently rendering */
 int shmfb_pending(void);		/* returns number of pending tiles */
