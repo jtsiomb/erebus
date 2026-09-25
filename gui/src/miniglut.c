@@ -630,12 +630,10 @@ void glutMainLoopEvent(void)
 		}
 	}
 
-	if(FD_ISSET(xfd, &rdset)) {
-		while(XPending(dpy)) {
-			XNextEvent(dpy, &ev);
-			handle_event(&ev);
-			if(quit) goto end;
-		}
+	while(XPending(dpy)) {
+		XNextEvent(dpy, &ev);
+		handle_event(&ev);
+		if(quit) goto end;
 	}
 
 	if(cb_idle) {

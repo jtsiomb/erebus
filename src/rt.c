@@ -17,18 +17,19 @@ float zdist;		/* 1.0 / tan(fov / 2) */
 struct renderer rend;
 
 static struct tile *tiles;
-static int num_tiles;
+static int xtiles, ytiles, num_tiles;
 
 THREAD_LOCAL struct tile *curtile;
 THREAD_LOCAL struct path_aux_data auxdata;
 
 static void render_tile(struct tile *tile);
 static void print_progress(int p, int sample);
+static int tilesortcmp(const void *a, const void *b);
 
 
 int fbsize(int width, int height)
 {
-	int i, j, x, y, xtiles, ytiles;
+	int i, j, x, y;
 	cgm_vec4 *fbptr;
 #ifdef USE_OIDN
 	cgm_vec3 *nptr = 0, *alb = 0;
@@ -91,6 +92,7 @@ int fbsize(int width, int height)
 			tileptr->y = y;
 			tileptr->width = width - x < opt.tilesz ? width - x : opt.tilesz;
 			tileptr->height = height - y < opt.tilesz ? height - y : opt.tilesz;
+			tileptr->fboffs = y * width + x;
 			tileptr->fbptr = fbptr + x;
 #ifdef USE_OIDN
 			if(opt.denoise) {
@@ -116,6 +118,9 @@ int fbsize(int width, int height)
 #endif
 		y += opt.tilesz;
 	}
+
+	/* sort tiles to render the center of the image first */
+	qsort(tiles, num_tiles, sizeof *tiles, tilesortcmp);
 
 	return 0;
 err:
@@ -380,4 +385,23 @@ static void print_progress(int p, int sample)
 	}
 	printf("] sample: %d/%d", sample + 1, opt.nsamples);
 	fflush(stdout);
+}
+
+static int tilesortcmp(const void *a, const void *b)
+{
+	struct tile *ta = (struct tile*)a;
+	struct tile *tb = (struct tile*)b;
+	int cx, cy, dxa, dya, dxb, dyb, da, db;
+
+	cx = fb.width / 2;
+	cy = fb.height / 2;
+
+	dxa = ta->x - cx;
+	dya = ta->y - cy;
+	dxb = tb->x - cx;
+	dyb = tb->y - cy;
+
+	da = dxa * dxa + dya * dya;
+	db = dxb * dxb + dyb * dyb;
+	return da - db;
 }

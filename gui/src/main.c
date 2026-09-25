@@ -89,8 +89,9 @@ int main(int argc, char **argv)
 
 void procinput(int fd)
 {
-	int sz;
+	int sz, c;
 	char buf[64];
+	char *src, *dst;
 
 	if((sz = read(rend_pipe, buf, sizeof buf)) == -1) {
 		return;
@@ -107,31 +108,27 @@ void procinput(int fd)
 		return;
 	}
 
-	printf("DBG input pipe (%d)\n", sz);
+	src = buf;
+	dst = st_text[st_pg ^ 1];
 	while(sz > 0) {
-		char *src = buf;
-		char *dst = st_text[st_pg ^ 1];
-
 		if(*src == 0) {
 			glutPostRedisplay();
 			src++;
 			sz--;
 		}
 
-		while(sz-- && st_cur < STATUS_LEN) {
-			int c = *src++;
+		c = *src++;
+		sz--;
 
-			if(c == '\n') {
-				dst = st_text[st_pg];
-				st_pg ^= 1;
-				st_text[st_pg][st_cur] = 0;
-				st_cur = 0;
-				printf("INPUT: %s\n", st_text[st_pg]);
-				glutPostRedisplay();
-
-			} else if(isprint(c)) {
-				dst[st_cur++] = c;
-			}
+		if(c == '\n') {
+			dst = st_text[st_pg];
+			st_pg ^= 1;
+			st_text[st_pg][st_cur] = 0;
+			st_cur = 0;
+			printf("> %s\n", st_text[st_pg]);
+			glutPostRedisplay();
+		} else if(isprint(c) && st_cur < STATUS_LEN) {
+			dst[st_cur++] = c;
 		}
 	}
 }
@@ -225,7 +222,7 @@ int init(void)
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, shmfb->pixels);
 
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, width);
 
@@ -253,18 +250,14 @@ void updatefb(void)
 	int tileidx;
 	struct tile *tile;
 
-	/*
 	tileidx = shmfb_get_donelist();
 	while(tileidx != -1) {
 		tile = shmfb->tiles + tileidx;
 		tileidx = tile->next;
 
-		printf("update tile: %d %d  %dx%d\n", tile->x, tile->y, tile->width, tile->height);
 		glTexSubImage2D(GL_TEXTURE_2D, 0, tile->x, tile->y, tile->width, tile->height,
-				GL_RGBA, GL_FLOAT, tile->fbptr);
+				GL_RGBA, GL_FLOAT, shmfb->pixels + tile->fboffs);
 	}
-	*/
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_FLOAT, shmfb->pixels);
 }
 
 void display(void)

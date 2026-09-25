@@ -10,7 +10,7 @@ struct options opt = {
 	"output.hdr",		/* output file */
 	0,					/* shared memory path */
 	0,					/* number of threads (0=auto) */
-	16,					/* tile size */
+	32,					/* tile size */
 	6,					/* max recursion depth */
 #ifdef USE_OIDN
 	1,					/* denoise */

@@ -134,7 +134,6 @@ void shmfb_start(int ntiles)
 	shmfb->done_list = -1;
 	memset(shmfb->act_tiles, 0, sizeof shmfb->act_tiles);
 	sem_post(&shmfb->sem);
-	printf("DBG: shmfb_start\n");
 }
 
 static unsigned char zero;
@@ -147,7 +146,6 @@ void shmfb_tile_start(struct tile *tile)
 
 	sem_wait(&shmfb->sem);
 	shmfb->act_tiles[bmidx] |= 1 << bit;
-	printf("DBG: start tile %d (bit %d @ %d)\n", tidx, bit, bmidx);
 	sem_post(&shmfb->sem);
 
 	write(2, &zero, 1);
@@ -167,7 +165,6 @@ void shmfb_tile_done(struct tile *tile)
 
 		tile->next = shmfb->done_list;
 		shmfb->done_list = tile - shmfb->tiles;
-		printf("DBG: done tile %d\n", shmfb->done_list);
 	}
 	sem_post(&shmfb->sem);
 

@@ -54,6 +54,7 @@ struct path_aux_data {
 
 struct tile {
 	int x, y, width, height;
+	unsigned int fboffs;
 	int sample;
 	cgm_vec4 *fbptr;
 	cgm_vec3 *nptr, *albptr;

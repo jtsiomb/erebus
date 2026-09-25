@@ -33,7 +33,7 @@ void shmfb_unmap(void);
 void shmfb_start(int ntiles);
 void shmfb_tile_start(struct tile *tile);
 void shmfb_tile_done(struct tile *tile);
-struct tile *shmfb_get_done(void);
+int shmfb_get_donelist(void);
 
 int shmfb_rendering(void);		/* non-zero if currently rendering */
 int shmfb_pending(void);		/* returns number of pending tiles */
