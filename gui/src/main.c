@@ -244,7 +244,7 @@ int init(void)
 	}
 	set_uniform_float(sdr, "inv_gamma", 1.0f / 2.2f);
 
-	xpos_samp = glutBitmapLength(STATUS_FONT, "888/888 samples");
+	xpos_samp = glutBitmapLength(STATUS_FONT, "(888/888)");
 	xpos_prog = glutBitmapLength(STATUS_FONT, "100%00") + xpos_samp;
 	return 0;
 }
@@ -390,7 +390,7 @@ void display(void)
 	glprintf(10, 10, st_text[st_pg]);
 
 	glprintf(width - xpos_prog, 10, "%3d%%", (progr * 100) >> 10);
-	glprintf(width - xpos_samp, 10, "%3d/%-3d samples", shmfb->cur_sample, shmfb->total_samples);
+	glprintf(width - xpos_samp, 10, "(%3d/%-3d)", shmfb->cur_sample + 1, shmfb->total_samples);
 
 	glutSwapBuffers();
 	assert(glGetError() == GL_NO_ERROR);

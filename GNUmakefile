@@ -8,7 +8,7 @@ bin = erebus
 alibs = libs/treestor/libtreestore.a libs/imago/libimago.a \
 		libs/meshfile/libmeshfile.a
 
-opt = -O0 -ffast-math -fno-strict-aliasing
+opt = -O3 -ffast-math -fno-strict-aliasing
 dbg = -g
 warn = -pedantic -Wall
 

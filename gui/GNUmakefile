@@ -3,6 +3,7 @@ obj = $(src:.c=.o) ../src/shmfb.o
 dep = $(src:.c=.d)
 bin = erebus-gui
 
+opt = -O3 -fno-strict-aliasing
 dbg = -g
 warn = -pedantic -Wall
 inc = -I../src -Ilibs/glew
