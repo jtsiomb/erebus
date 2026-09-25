@@ -366,9 +366,9 @@ void display(void)
 	bind_program(0);
 
 	glBegin(GL_LINES);
+	glColor3f(0, 0.7, 0);
 	rect = active;
 	for(i=0; i<num_active; i++) {
-		glColor3f(0, 0.5, 0);
 		glVertex2f(rect->x, rect->y);
 		glVertex2f(rect->x + rect->w, rect->y);
 		glVertex2f(rect->x + rect->w, rect->y);

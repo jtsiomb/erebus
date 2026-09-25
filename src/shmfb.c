@@ -195,7 +195,7 @@ int shmfb_progress(void)
 	if(shmfb->total_tiles) {
 		progr = (shmfb->total_done << 10) / shmfb->total_tiles;
 	} else {
-		progr = 1024;
+		progr = 0;
 	}
 	sem_post(&shmfb->sem);
 	return progr;
