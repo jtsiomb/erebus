@@ -120,6 +120,10 @@ int main(int argc, char **argv)
 
 		printf("denoising\n");
 		denoise((float*)fb.pixels, (float*)fb.normals, (float*)fb.albedo, fb.width, fb.height);
+
+		if(shmfb) {
+			fputc('\b', stderr);	/* notify the front-end to update the whole image */
+		}
 	}
 #endif
 

@@ -12,7 +12,7 @@ struct sharedfb {
 	int width, height;
 
 	sem_t sem;
-	int done_tiles, num_tiles;
+	int num_done, num_tiles;
 
 	int done_list;
 	struct tile tiles[MAX_SHM_TILES];
@@ -26,6 +26,9 @@ extern struct sharedfb *shmfb;
 
 int shmfb_create(const char *path, int w, int h);
 void shmfb_destroy(void);
+
+void shmfb_lock(void);
+void shmfb_unlock(void);
 
 int shmfb_map(const char *path);
 void shmfb_unmap(void);

@@ -14,6 +14,10 @@
 #include "shmfb.h"
 #include "sdr.h"
 
+struct rect {
+	int x, y, w, h;
+};
+
 #define STATUSBAR_HEIGHT	32
 
 void procinput(int fd);
@@ -45,6 +49,11 @@ static unsigned int sdr;
 #define STATUS_LEN		80
 static char st_text[2][STATUS_LEN + 1];
 static int st_cur, st_pg;
+
+static int full_redraw;
+
+static struct rect active[MAX_SHM_TILES];
+static int num_active;
 
 
 int main(int argc, char **argv)
@@ -111,7 +120,8 @@ void procinput(int fd)
 	src = buf;
 	dst = st_text[st_pg ^ 1];
 	while(sz > 0) {
-		if(*src == 0) {
+		if(*src == 0 || *src == '\b') {
+			if(*src == '\b') full_redraw = 1;
 			glutPostRedisplay();
 			src++;
 			sz--;
@@ -247,22 +257,65 @@ void cleanup(void)
 
 void updatefb(void)
 {
-	int tileidx;
+	int i, tileidx, num_tiles, num_done, bmidx;
+	uint32_t bit;
 	struct tile *tile;
+	int done_list[MAX_SHM_TILES];
+	uint32_t act_tiles[TILES_BM_LEN];
 
-	tileidx = shmfb_get_donelist();
-	while(tileidx != -1) {
-		tile = shmfb->tiles + tileidx;
-		tileidx = tile->next;
+	num_active = 0;
 
-		glTexSubImage2D(GL_TEXTURE_2D, 0, tile->x, tile->y, tile->width, tile->height,
-				GL_RGBA, GL_FLOAT, shmfb->pixels + tile->fboffs);
+	if(full_redraw) {
+		full_redraw = 0;
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, shmfb->width, shmfb->height,
+				GL_RGBA, GL_FLOAT, shmfb->pixels);
+	} else {
+		shmfb_lock();
+		num_tiles = shmfb->num_tiles;
+
+		/* copy the list of completed tiles */
+		num_done = 0;
+		tileidx = shmfb->done_list;
+		while(tileidx != -1) {
+			assert(num_done < MAX_SHM_TILES);
+			tile = shmfb->tiles + tileidx;
+			done_list[num_done++] = tileidx;
+			tileidx = tile->next;
+		}
+		shmfb->done_list = -1;
+
+		memcpy(act_tiles, shmfb->act_tiles, sizeof act_tiles);
+		shmfb_unlock();
+
+		for(i=0; i<num_done; i++) {
+			tile = shmfb->tiles + done_list[i];
+
+			glTexSubImage2D(GL_TEXTURE_2D, 0, tile->x, tile->y, tile->width,
+					tile->height, GL_RGBA, GL_FLOAT, shmfb->pixels + tile->fboffs);
+		}
+
+		bmidx = 0;
+		bit = 1;
+		for(i=0; i<num_tiles; i++) {
+			if(act_tiles[bmidx] & bit) {
+				active[num_active].x = shmfb->tiles[i].x;
+				active[num_active].y = shmfb->tiles[i].y;
+				active[num_active].w = shmfb->tiles[i].width;
+				active[num_active++].h = shmfb->tiles[i].height;
+			}
+			bit <<= 1;
+			if(!bit) {
+				bit = 1;
+				bmidx++;
+			}
+		}
 	}
 }
 
 void display(void)
 {
-	int progr;
+	int i, progr;
+	struct rect *rect;
 
 	progr = shmfb_progress();
 
@@ -291,6 +344,18 @@ void display(void)
 	glEnd();
 
 	bind_program(0);
+
+	glBegin(GL_QUADS);
+	rect = active;
+	for(i=0; i<num_active; i++) {
+		glColor3f(0, 1, 0);
+		glVertex2f(rect->x, rect->y);
+		glVertex2f(rect->x + rect->w, rect->y);
+		glVertex2f(rect->x + rect->w, rect->y + rect->h);
+		glVertex2f(rect->x, rect->y + rect->h);
+		rect++;
+	}
+	glEnd();
 
 	glPopMatrix();
 

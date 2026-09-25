@@ -42,7 +42,7 @@ int shmfb_create(const char *path, int w, int h)
 
 	shmfb->width = w;
 	shmfb->height = h;
-	shmfb->done_tiles = shmfb->num_tiles = 0;
+	shmfb->num_done = shmfb->num_tiles = 0;
 	shmfb->done_list = -1;
 
 	sem_init(&shmfb->sem, 1, 1);
@@ -129,7 +129,7 @@ void shmfb_unlock(void)
 void shmfb_start(int ntiles)
 {
 	sem_wait(&shmfb->sem);
-	shmfb->done_tiles = 0;
+	shmfb->num_done = 0;
 	shmfb->num_tiles = ntiles;
 	shmfb->done_list = -1;
 	memset(shmfb->act_tiles, 0, sizeof shmfb->act_tiles);
@@ -158,14 +158,13 @@ void shmfb_tile_done(struct tile *tile)
 	int bit = tidx & 31;
 
 	sem_wait(&shmfb->sem);
-	if(shmfb->done_tiles < shmfb->num_tiles) {
-		shmfb->done_tiles++;
-
-		shmfb->act_tiles[bmidx] &= ~(1 << bit);
+	if(shmfb->num_done < shmfb->num_tiles) {
+		shmfb->num_done++;
 
 		tile->next = shmfb->done_list;
 		shmfb->done_list = tile - shmfb->tiles;
 	}
+	shmfb->act_tiles[bmidx] &= ~(1 << bit);
 	sem_post(&shmfb->sem);
 
 	write(2, &zero, 1);
@@ -190,7 +189,7 @@ int shmfb_pending(void)
 {
 	int res;
 	sem_wait(&shmfb->sem);
-	res = shmfb->num_tiles - shmfb->done_tiles;
+	res = shmfb->num_tiles - shmfb->num_done;
 	sem_post(&shmfb->sem);
 	return res;
 }
@@ -200,7 +199,7 @@ int shmfb_progress(void)
 	int progr;
 	sem_wait(&shmfb->sem);
 	if(shmfb->num_tiles) {
-		progr = (shmfb->done_tiles << 10) / shmfb->num_tiles;
+		progr = (shmfb->num_done << 10) / shmfb->num_tiles;
 	} else {
 		progr = 1024;
 	}
