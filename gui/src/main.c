@@ -307,7 +307,7 @@ full:	full_redraw = 0;
 			tileidx++;
 		}
 
-		if(num_done >= MAX_SHM_TILES) {
+		if(num_done >= 3 * MAX_SHM_TILES / 4) {
 			/* TODO: maybe even if a large fraction of the tiles need updating? */
 			goto full;
 		}

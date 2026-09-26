@@ -37,7 +37,7 @@ int ray_triangle(cgm_ray *ray, struct triangle *tri, float tmax, struct rayhit *
 		}
 
 		hit->t = t;
-		hit->ray = *ray;
+		hit->vdir = cgm_vvec(-ray->dir.x, -ray->dir.y, -ray->dir.z);
 		hit->mtl = tri->mtl;
 
 		hit->v.pos = pos;

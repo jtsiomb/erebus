@@ -84,10 +84,22 @@ static CGM_INLINE void cgm_vsub_scaled(cgm_vec3 *a, const cgm_vec3 *b, float s);
 static CGM_INLINE void cgm_vmul(cgm_vec3 *a, const cgm_vec3 *b);
 static CGM_INLINE void cgm_vscale(cgm_vec3 *v, float s);
 static CGM_INLINE void cgm_vneg(cgm_vec3 *v);
+
+static CGM_INLINE cgm_vec3 cgm_vvadd(cgm_vec3 a, cgm_vec3 b);
+static CGM_INLINE cgm_vec3 cgm_vvsub(cgm_vec3 a, cgm_vec3 b);
+static CGM_INLINE cgm_vec3 cgm_vvmul(cgm_vec3 a, cgm_vec3 b);
+static CGM_INLINE cgm_vec3 cgm_vvscale(cgm_vec3 v, float s);
+static CGM_INLINE cgm_vec3 cgm_vvneg(cgm_vec3 v);
+
 static CGM_INLINE void cgm_vmul_m4v3(cgm_vec3 *v, const float *m);	/* m4x4 * v */
 static CGM_INLINE void cgm_vmul_v3m4(cgm_vec3 *v, const float *m);	/* v * m4x4 */
 static CGM_INLINE void cgm_vmul_m3v3(cgm_vec3 *v, const float *m);	/* m3x3 * v (m still 16 floats) */
 static CGM_INLINE void cgm_vmul_v3m3(cgm_vec3 *v, const float *m);	/* v * m3x3 (m still 16 floats) */
+
+static CGM_INLINE cgm_vec3 cgm_vvmul_m4v3(cgm_vec3 v, const float *m);	/* m4x4 * v */
+static CGM_INLINE cgm_vec3 cgm_vvmul_v3m4(cgm_vec3 v, const float *m);	/* v * m4x4 */
+static CGM_INLINE cgm_vec3 cgm_vvmul_m3v3(cgm_vec3 v, const float *m);	/* m3x3 * v (m still 16 floats) */
+static CGM_INLINE cgm_vec3 cgm_vvmul_v3m3(cgm_vec3 v, const float *m);	/* v * m3x3 (m still 16 floats) */
 
 /* vc.. variants take dest, src1, src2, aliasing allowed */
 static CGM_INLINE void cgm_vcadd(cgm_vec3 *dest, const cgm_vec3 *a, const cgm_vec3 *b);
@@ -109,15 +121,32 @@ static CGM_INLINE float cgm_vdist(const cgm_vec3 *a, const cgm_vec3 *b);
 static CGM_INLINE float cgm_vdist_sq(const cgm_vec3 *a, const cgm_vec3 *b);
 static CGM_INLINE void cgm_vnormalize(cgm_vec3 *v);
 
+static CGM_INLINE float cgm_vvdot(cgm_vec3 a, cgm_vec3 b);
+static CGM_INLINE cgm_vec3 cgm_vvcross(cgm_vec3 a, cgm_vec3 b);
+static CGM_INLINE float cgm_vvlength(cgm_vec3 v);
+static CGM_INLINE float cgm_vvlength_sq(cgm_vec3 v);
+static CGM_INLINE float cgm_vvdist(cgm_vec3 a, cgm_vec3 b);
+static CGM_INLINE float cgm_vvdist_sq(cgm_vec3 a, cgm_vec3 b);
+static CGM_INLINE cgm_vec3 cgm_vvnormalize(cgm_vec3 v);
+
 static CGM_INLINE void cgm_vreflect(cgm_vec3 *v, const cgm_vec3 *n);
 static CGM_INLINE int cgm_vrefract(cgm_vec3 *v, const cgm_vec3 *n, float ior);
+
+static CGM_INLINE cgm_vec3 cgm_vvreflect(cgm_vec3 v, cgm_vec3 n);
+static CGM_INLINE cgm_vec3 cgm_vvrefract(cgm_vec3 v, const cgm_vec3 n, float ior);
 
 static CGM_INLINE void cgm_vrotate_quat(cgm_vec3 *v, const cgm_quat *q);
 static CGM_INLINE void cgm_vrotate_axis(cgm_vec3 *v, int axis, float angle);
 static CGM_INLINE void cgm_vrotate(cgm_vec3 *v, float angle, float x, float y, float z);
 static CGM_INLINE void cgm_vrotate_euler(cgm_vec3 *v, float a, float b, float c, enum cgm_euler_mode mode);
 
+static CGM_INLINE cgm_vec3 cgm_vvrotate_quat(cgm_vec3 v, cgm_quat q);
+static CGM_INLINE cgm_vec3 cgm_vvrotate_axis(cgm_vec3 v, int axis, float angle);
+static CGM_INLINE cgm_vec3 cgm_vvrotate(cgm_vec3 v, float angle, float x, float y, float z);
+static CGM_INLINE cgm_vec3 cgm_vvrotate_euler(cgm_vec3 v, float a, float b, float c, enum cgm_euler_mode mode);
+
 static CGM_INLINE void cgm_vlerp(cgm_vec3 *res, const cgm_vec3 *a, const cgm_vec3 *b, float t);
+static CGM_INLINE cgm_vec3 cgm_vvlerp(cgm_vec3 a, cgm_vec3 b, float t);
 
 #define cgm_velem(vptr, idx)	((&(vptr)->x)[idx])
 

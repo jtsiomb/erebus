@@ -23,7 +23,7 @@ struct aabox {
 struct rayhit {
 	float t;
 	struct vertex v;
-	cgm_ray ray;
+	cgm_vec3 vdir;
 	struct material *mtl;
 };
 

@@ -30,13 +30,12 @@ void rt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 	cgm_vmul(&col, &scn.ambient);
 	cgm_vadd(color, &col);
 
-	if(cgm_vdot(&hit->ray.dir, &hit->v.norm) > 0.0f) {
+	if(cgm_vdot(&hit->vdir, &hit->v.norm) < 0.0f) {
 		cgm_vneg(&hit->v.norm);
 	}
 	n = hit->v.norm;
 
-	vdir = hit->ray.dir;
-	cgm_vneg(&vdir);
+	vdir = hit->vdir;
 	cgm_vnormalize(&vdir);
 
 	lt = scn.lightlist;
@@ -70,7 +69,7 @@ void rt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 
 	if((refl = mtlattr_num(mtl, MATTR_REFLECT, &hit->v.tex)) > 1e-4f) {
 		ray.origin = hit->v.pos;
-		ray.dir = hit->ray.dir;
+		ray.dir = cgm_vvneg(hit->vdir);
 		cgm_vreflect(&ray.dir, &n);
 
 		if(!mtl->metal) {
@@ -86,7 +85,7 @@ void rt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 
 	if((trans = mtlattr_num(mtl, MATTR_TRANSMIT, &hit->v.tex)) > 1e-4f) {
 		ray.origin = hit->v.pos;
-		ray.dir = hit->ray.dir;
+		ray.dir = cgm_vvneg(hit->vdir);
 		cgm_vrefract(&ray.dir, &n, mtl->ior);
 
 		ray_trace(&col, &ray, trans, max_iter - 1);

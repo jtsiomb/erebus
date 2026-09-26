@@ -26,7 +26,7 @@ void pt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 	cgm_ray ray;
 	struct material *mtl = hit->mtl;
 
-	if(cgm_vdot(&hit->ray.dir, &hit->v.norm) > 0.0f) {
+	if(cgm_vdot(&hit->vdir, &hit->v.norm) < 0.0f) {
 		cgm_vneg(&hit->v.norm);
 	}
 	n = hit->v.norm;
@@ -61,9 +61,7 @@ void pt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 		cgm_vnormalize(&ray.dir);
 
 		if(cgm_vdot(&ray.dir, &n) < 0.0f) {
-			ray.dir.x = -ray.dir.x;
-			ray.dir.y = -ray.dir.y;
-			ray.dir.z = -ray.dir.z;
+			cgm_vneg(&ray.dir);
 		}
 
 		ray.origin = hit->v.pos;
@@ -75,11 +73,11 @@ void pt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 
 	} else if(rval <= pdiff + pspec) {
 		cgm_vnormalize(&n);
-		ray.dir = hit->ray.dir;
+		ray.dir = cgm_vvneg(hit->vdir);
 
 		if(!mtl->metal && (transmit = mtrans > 0.0f)) {
 			/* calculate fresnel factor */
-			fres = fresnel(-cgm_vdot(&hit->ray.dir, &n), mtl->ior);
+			fres = fresnel(cgm_vdot(&hit->vdir, &n), mtl->ior);
 			if(frand() < fres) {
 				goto reflect;
 			}

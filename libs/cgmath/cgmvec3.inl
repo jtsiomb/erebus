@@ -1,5 +1,5 @@
 /* gph-cmath - C graphics math library
- * Copyright (C) 2018-2023 John Tsiombikas <nuclear@member.fsf.org>
+ * Copyright (C) 2018-2026 John Tsiombikas <nuclear@mutantstargoat.com>
  *
  * This program is free software. Feel free to use, modify, and/or redistribute
  * it under the terms of the MIT/X11 license. See LICENSE for details.
@@ -71,6 +71,31 @@ static CGM_INLINE void cgm_vneg(cgm_vec3 *v)
 	v->z = -v->z;
 }
 
+static CGM_INLINE cgm_vec3 cgm_vvadd(cgm_vec3 a, cgm_vec3 b)
+{
+	return cgm_vvec(a.x + b.x, a.y + b.y, a.z + b.z);
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvsub(cgm_vec3 a, cgm_vec3 b)
+{
+	return cgm_vvec(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvmul(cgm_vec3 a, cgm_vec3 b)
+{
+	return cgm_vvec(a.x * b.x, a.y * b.y, a.z * b.z);
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvscale(cgm_vec3 v, float s)
+{
+	return cgm_vvec(v.x * s, v.y * s, v.z * s);
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvneg(cgm_vec3 v)
+{
+	return cgm_vvec(-v.x, -v.y, -v.z);
+}
+
 static CGM_INLINE void cgm_vmul_m4v3(cgm_vec3 *v, const float *m)
 {
 	float x = v->x * m[0] + v->y * m[4] + v->z * m[8] + m[12];
@@ -106,6 +131,43 @@ static CGM_INLINE void cgm_vmul_v3m3(cgm_vec3 *v, const float *m)
 	v->x = x;
 	v->y = y;
 }
+
+static CGM_INLINE cgm_vec3 cgm_vvmul_m4v3(cgm_vec3 v, const float *m)
+{
+	cgm_vec3 res;
+	res.x = v.x * m[0] + v.y * m[4] + v.z * m[8] + m[12];
+	res.y = v.x * m[1] + v.y * m[5] + v.z * m[9] + m[13];
+	res.z = v.x * m[2] + v.y * m[6] + v.z * m[10] + m[14];
+	return res;
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvmul_v3m4(cgm_vec3 v, const float *m)
+{
+	cgm_vec3 res;
+	res.x = v.x * m[0] + v.y * m[1] + v.z * m[2] + m[3];
+	res.y = v.x * m[4] + v.y * m[5] + v.z * m[6] + m[7];
+	res.z = v.x * m[8] + v.y * m[9] + v.z * m[10] + m[11];
+	return res;
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvmul_m3v3(cgm_vec3 v, const float *m)
+{
+	cgm_vec3 res;
+	res.x = v.x * m[0] + v.y * m[4] + v.z * m[8];
+	res.y = v.x * m[1] + v.y * m[5] + v.z * m[9];
+	res.z = v.x * m[2] + v.y * m[6] + v.z * m[10];
+	return res;
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvmul_v3m3(cgm_vec3 v, const float *m)
+{
+	cgm_vec3 res;
+	res.x = v.x * m[0] + v.y * m[1] + v.z * m[2];
+	res.y = v.x * m[4] + v.y * m[5] + v.z * m[6];
+	res.z = v.x * m[8] + v.y * m[9] + v.z * m[10];
+	return res;
+}
+
 
 static CGM_INLINE void cgm_vcadd(cgm_vec3 *dest, const cgm_vec3 *a, const cgm_vec3 *b)
 {
@@ -235,6 +297,56 @@ static CGM_INLINE void cgm_vnormalize(cgm_vec3 *v)
 	}
 }
 
+static CGM_INLINE float cgm_vvdot(cgm_vec3 a, cgm_vec3 b)
+{
+	return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvcross(cgm_vec3 a, cgm_vec3 b)
+{
+	cgm_vec3 res;
+	res.x = a.y * b.z - a.z * b.y;
+	res.y = a.z * b.x - a.x * b.z;
+	res.z = a.x * b.y - a.y * b.x;
+	return res;
+}
+
+static CGM_INLINE float cgm_vvlength(cgm_vec3 v)
+{
+	return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+static CGM_INLINE float cgm_vvlength_sq(cgm_vec3 v)
+{
+	return v.x * v.x + v.y * v.y + v.z * v.z;
+}
+
+static CGM_INLINE float cgm_vvdist(cgm_vec3 a, cgm_vec3 b)
+{
+	float dx = a.x - b.x;
+	float dy = a.y - b.y;
+	float dz = a.z - b.z;
+	return sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+static CGM_INLINE float cgm_vvdist_sq(cgm_vec3 a, cgm_vec3 b)
+{
+	float dx = a.x - b.x;
+	float dy = a.y - b.y;
+	float dz = a.z - b.z;
+	return dx * dx + dy * dy + dz * dz;
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvnormalize(cgm_vec3 v)
+{
+	float len = cgm_vvlength(v);
+	if(len != 0.0f) {
+		float s = 1.0f / len;
+		return cgm_vvscale(v, s);
+	}
+	return v;
+}
+
 static CGM_INLINE void cgm_vreflect(cgm_vec3 *v, const cgm_vec3 *n)
 {
 	float ndotv2 = cgm_vdot(v, n) * 2.0f;
@@ -259,6 +371,30 @@ static CGM_INLINE int cgm_vrefract(cgm_vec3 *v, const cgm_vec3 *n, float ior)
 	v->y = ior * v->y - (ior * ndotv + sqrt_k) * n->y;
 	v->z = ior * v->z - (ior * ndotv + sqrt_k) * n->z;
 	return 0;
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvreflect(cgm_vec3 v, cgm_vec3 n)
+{
+	float ndotv2 = cgm_vvdot(v, n) * 2.0f;
+	return cgm_vvsub(v, cgm_vvscale(n, ndotv2));
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvrefract(cgm_vec3 v, const cgm_vec3 n, float ior)
+{
+	cgm_vec3 res;
+	float sqrt_k;
+	float ndotv = cgm_vvdot(v, n);
+	float k = 1.0f - ior * ior * (1.0f - ndotv * ndotv);
+
+	if(k < 0.0f) {
+		return cgm_vvreflect(v, n);	/* TIR */
+	}
+
+	sqrt_k = sqrt(k);
+	res.x = ior * v.x - (ior * ndotv + sqrt_k) * n.x;
+	res.y = ior * v.y - (ior * ndotv + sqrt_k) * n.y;
+	res.z = ior * v.z - (ior * ndotv + sqrt_k) * n.z;
+	return res;
 }
 
 static CGM_INLINE void cgm_vrotate_quat(cgm_vec3 *v, const cgm_quat *q)
@@ -293,9 +429,52 @@ static CGM_INLINE void cgm_vrotate_euler(cgm_vec3 *v, float a, float b, float c,
 	cgm_vmul_m3v3(v, m);
 }
 
+static CGM_INLINE cgm_vec3 cgm_vvrotate_quat(cgm_vec3 v, cgm_quat q)
+{
+	/* TODO qq-convert */
+	cgm_quat vq, inv_q = q, tmp_q = q;
+
+	cgm_qcons(&vq, v.x, v.y, v.z, 0.0f);
+	cgm_qinvert(&inv_q);
+	cgm_qmul(&tmp_q, &vq);
+	cgm_qmul(&tmp_q, &inv_q);
+	return cgm_vvec(tmp_q.x, tmp_q.y, tmp_q.z);
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvrotate_axis(cgm_vec3 v, int axis, float angle)
+{
+	float m[16];
+	cgm_mrotation_axis(m, axis, angle);
+	return cgm_vvmul_m3v3(v, m);
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvrotate(cgm_vec3 v, float angle, float x, float y, float z)
+{
+	float m[16];
+	cgm_mrotation(m, angle, x, y, z);
+	return cgm_vvmul_m3v3(v, m);
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvrotate_euler(cgm_vec3 v, float a, float b, float c, enum cgm_euler_mode mode)
+{
+	float m[16];
+	cgm_mrotation_euler(m, a, b, c, mode);
+	return cgm_vvmul_m3v3(v, m);
+}
+
+
 static CGM_INLINE void cgm_vlerp(cgm_vec3 *res, const cgm_vec3 *a, const cgm_vec3 *b, float t)
 {
 	res->x = a->x + (b->x - a->x) * t;
 	res->y = a->y + (b->y - a->y) * t;
 	res->z = a->z + (b->z - a->z) * t;
+}
+
+static CGM_INLINE cgm_vec3 cgm_vvlerp(cgm_vec3 a, cgm_vec3 b, float t)
+{
+	cgm_vec3 res;
+	res.x = a.x + (b.x - a.x) * t;
+	res.y = a.y + (b.y - a.y) * t;
+	res.z = a.z + (b.z - a.z) * t;
+	return res;
 }
