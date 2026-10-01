@@ -2,6 +2,7 @@
 #include "erebus.h"
 #include "rt.h"
 #include "scene.h"
+#include "brdf.h"
 
 
 void pt_bgcolor(cgm_vec3 *color, cgm_ray *ray);
@@ -29,6 +30,7 @@ void pt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 	if(cgm_vdot(&hit->vdir, &hit->v.norm) < 0.0f) {
 		cgm_vneg(&hit->v.norm);
 	}
+	cgm_vnormalize(&hit->v.norm);
 	n = hit->v.norm;
 
 	mtlattr_vec(&mcol, hit->mtl, MATTR_COLOR, &hit->v.tex);
@@ -53,16 +55,8 @@ void pt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 	assert(pdiff + pspec <= 1.0f);
 
 	if(rval <= pdiff) {
-		cgm_vnormalize(&n);
-
 		/* pick diffuse direction with a cosine-weighted probability */
-		sphrand(&ray.dir, 0.98f);
-		cgm_vadd(&ray.dir, &n);
-		cgm_vnormalize(&ray.dir);
-
-		if(cgm_vdot(&ray.dir, &n) < 0.0f) {
-			cgm_vneg(&ray.dir);
-		}
+		lambert_brdf.sample(&ray.dir, hit);
 
 		ray.origin = hit->v.pos;
 		ray_trace(&rcol, &ray, pdiff, max_iter - 1);
@@ -72,7 +66,6 @@ void pt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 		color->z += rcol.z * mcol.z;
 
 	} else if(rval <= pdiff + pspec) {
-		cgm_vnormalize(&n);
 		ray.dir = cgm_vvneg(hit->vdir);
 
 		if(!mtl->metal && (transmit = mtrans > 0.0f)) {

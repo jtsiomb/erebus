@@ -73,7 +73,7 @@ void rt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 		cgm_vreflect(&ray.dir, &n);
 
 		if(!mtl->metal) {
-			fres = fresnel(cgm_vdot(&vdir, &n), mtl->ior);
+			fres = fresnel(cgm_vvdot(hit->vdir, n), mtl->ior);
 			ray_trace(&col, &ray, refl * fres, max_iter - 1);
 		} else {
 			ray_trace(&col, &ray, refl, max_iter - 1);
