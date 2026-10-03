@@ -40,5 +40,6 @@ struct options {
 extern struct options opt;
 
 int parse_args(int argc, char **argv);
+int read_options(const char *fname);
 
 #endif	/* OPT_H_ */

@@ -36,6 +36,13 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	if(read_options(opt.infile)) {
+		/* found options in scene file, re-parse args to allow the user to
+		 * override them
+		 */
+		parse_args(argc, argv);
+	}
+
 	setvbuf(stdout, 0, _IOLBF, 0);
 	setvbuf(stderr, 0, _IONBF, 0);
 	signal(SIGINT, sighandler);

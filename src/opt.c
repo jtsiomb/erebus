@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "opt.h"
+#include "treestor/treestor.h"
 
 struct options opt = {
 	1280, 720,
@@ -146,4 +147,136 @@ int parse_args(int argc, char **argv)
 	}
 
 	return 0;
+}
+
+
+static int bool_value(struct ts_attr *attr)
+{
+	switch(attr->val.type) {
+	case TS_STRING:
+		if(strcmp(attr->val.str, "true") == 0 ||
+				strcmp(attr->val.str, "yes") == 0 ||
+				strcmp(attr->val.str, "on") == 0) {
+			return 1;
+		}
+		if(strcmp(attr->val.str, "false") == 0 ||
+				strcmp(attr->val.str, "no") == 0 ||
+				strcmp(attr->val.str, "off") == 0) {
+			return 0;
+		}
+		break;
+
+	case TS_NUMBER:
+		if(attr->val.inum == 1) return 1;
+		if(attr->val.inum == 0) return 0;
+		break;
+
+	default:
+		break;
+	}
+	return -1;
+}
+
+#define EXPECT_INT(min)	\
+	if(attr->val.type != TS_NUMBER || attr->val.inum < (min)) { \
+		fprintf(stderr, "%s: %s: value must be a number\n", fname, attr->name); \
+		goto next; \
+	}
+
+
+int read_options(const char *fname)
+{
+	int val, numopts = 0;
+	struct ts_node *ts, *tsn;
+	struct ts_attr *attr;
+
+	if(!(ts = ts_load(fname)) || strcmp(ts->name, "erebus") != 0) {
+		goto end;
+	}
+	if(!(tsn = ts_get_child(ts, "opt"))) {
+		goto end;
+	}
+
+	attr = tsn->attr_list;
+	while(attr) {
+		if(strcmp(attr->name, "size") == 0) {
+			if(sscanf(attr->val.str, "%dx%d", &opt.width, &opt.height) < 2) {
+				fprintf(stderr, "%s: size: value must be <width>x<height>\n", fname);
+				goto next;
+			}
+
+		} else if(strcmp(attr->name, "samples") == 0) {
+			EXPECT_INT(1);
+			opt.nsamples = attr->val.inum;
+
+		} else if(strcmp(attr->name, "threads") == 0) {
+			if(attr->val.type == TS_STRING && strcmp(attr->val.str, "auto") == 0) {
+				opt.nthreads = 0;
+			} else if(attr->val.type == TS_NUMBER && attr->val.inum >= 0) {
+				opt.nthreads = attr->val.inum;
+			} else {
+				fprintf(stderr, "%s: threads: value must be a positive number, or \"auto\"\n", fname);
+			}
+
+		} else if(strcmp(attr->name, "tile") == 0) {
+			EXPECT_INT(1);
+			opt.tilesz = attr->val.inum;
+
+		} else if(strcmp(attr->name, "depth") == 0) {
+			EXPECT_INT(0);
+			opt.max_iter = attr->val.inum;
+
+		} else if(strcmp(attr->name, "denoise") == 0) {
+			if((val = bool_value(attr)) == -1) {
+				fprintf(stderr, "%s: denoise: value must be a boolean\n", fname);
+				goto next;
+			}
+			opt.denoise = val;
+
+		} else if(strcmp(attr->name, "renderer") == 0) {
+			if(attr->val.type == TS_STRING) {
+				if(strcmp(attr->val.str, "rt") == 0) {
+					opt.renderer = OPT_RAY_TRACER;
+					goto next;
+				}
+				if(strcmp(attr->val.str, "pt") == 0) {
+					opt.renderer = OPT_PATH_TRACER;
+					goto next;
+				}
+			}
+			fprintf(stderr, "%s: renderer: value must be rt or pt\n", fname);
+
+		} else if(strcmp(attr->name, "gamma") == 0) {
+			if(attr->val.type != TS_NUMBER || attr->val.fnum <= 0.0f) {
+				fprintf(stderr, "%s: gamma: value must be a positive number\n", fname);
+				goto next;
+			}
+
+			opt.gamma = attr->val.fnum;
+
+		} else if(strcmp(attr->name, "tonemap") == 0) {
+			if(attr->val.type != TS_STRING) {
+				if(strcmp(attr->val.str, "reinhard") == 0) {
+					opt.tonemap = OPT_TONEMAP_REINHARD;
+					goto next;
+				}
+				if(strcmp(attr->val.str, "aces") == 0) {
+					opt.tonemap = OPT_TONEMAP_ACES;
+					goto next;
+				}
+			}
+			fprintf(stderr, "%s: tonemap: value must be \"reinhard\" or \"aces\"\n", fname);
+
+		} else if(strcmp(attr->name, "output") == 0) {
+			opt.outfile = strdup(attr->val.str);
+
+		} else {
+			fprintf(stderr, "%s: unknown option: %s\n", fname, attr->name);
+		}
+next:	attr = attr->next;
+	}
+
+	ts_free_tree(ts);
+end:
+	return numopts;
 }
