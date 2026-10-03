@@ -157,9 +157,11 @@ void render(int samplenum)
 		}
 	}
 
-	shmfb_lock();
-	shmfb->cur_sample = samplenum;
-	shmfb_unlock();
+	if(shmfb) {
+		shmfb_lock();
+		shmfb->cur_sample = samplenum;
+		shmfb_unlock();
+	}
 
 	for(i=0; i<num_tiles; i++) {
 		tiles[i].sample = samplenum;
