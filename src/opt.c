@@ -231,7 +231,13 @@ int read_options(const char *fname)
 				fprintf(stderr, "%s: denoise: value must be a boolean\n", fname);
 				goto next;
 			}
+#ifdef USE_OIDN
 			opt.denoise = val;
+#else
+			if(val) {
+				fprintf(stderr, "%s: ignoring denoise enable, renderer not built with OIDN support\n", fname);
+			}
+#endif
 
 		} else if(strcmp(attr->name, "renderer") == 0) {
 			if(attr->val.type == TS_STRING) {
