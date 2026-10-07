@@ -33,7 +33,7 @@ OF SUCH DAMAGE.
 
 #ifdef WIN32
 #include <malloc.h>
-#else
+#elif !defined(__FreeBSD__) && !defined(__NetBSD__) && !defined(__OpenBSD__)
 #include <alloca.h>
 #endif
 
