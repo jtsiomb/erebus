@@ -307,7 +307,48 @@ float fresnel(float costheta, float ior)
 	return r0 + (1.0f - r0) * (xsq * xsq * x);
 }
 
-float mtlattr_num(struct material *mtl, int attr, cgm_vec2 *uv)
+void eval_material(struct hitmaterial *hitm, const struct material *mtl,
+		cgm_vec2 uv, unsigned int attrmask)
+{
+	if(attrmask == 0 || attrmask == MATTR_ALL_BITS) {
+		mtlattr_vec(&hitm->color, mtl, MATTR_COLOR, &uv);
+		mtlattr_vec(&hitm->spec, mtl, MATTR_SPECULAR, &uv);
+		mtlattr_vec(&hitm->emit, mtl, MATTR_EMIT, &uv);
+		hitm->refl = mtlattr_num(mtl, MATTR_REFLECT, &uv);
+		hitm->trans = mtlattr_num(mtl, MATTR_TRANSMIT, &uv);
+		hitm->rough = mtlattr_num(mtl, MATTR_ROUGHNESS, &uv);
+		hitm->metallic = mtlattr_num(mtl, MATTR_METALLIC, &uv);
+		hitm->shin = mtlattr_num(mtl, MATTR_SHININESS, &uv);
+		return;
+	}
+
+	if(attrmask & MATTR_COLOR_BIT) {
+		mtlattr_vec(&hitm->color, mtl, MATTR_COLOR, &uv);
+	}
+	if(attrmask & MATTR_SPECULAR_BIT) {
+		mtlattr_vec(&hitm->spec, mtl, MATTR_SPECULAR, &uv);
+	}
+	if(attrmask & MATTR_EMIT_BIT) {
+		mtlattr_vec(&hitm->emit, mtl, MATTR_EMIT, &uv);
+	}
+	if(attrmask & MATTR_REFLECT_BIT) {
+		hitm->refl = mtlattr_num(mtl, MATTR_REFLECT, &uv);
+	}
+	if(attrmask & MATTR_TRANSMIT_BIT) {
+		hitm->trans = mtlattr_num(mtl, MATTR_TRANSMIT, &uv);
+	}
+	if(attrmask & MATTR_ROUGHNESS_BIT) {
+		hitm->rough = mtlattr_num(mtl, MATTR_ROUGHNESS, &uv);
+	}
+	if(attrmask & MATTR_METALLIC_BIT) {
+		hitm->metallic = mtlattr_num(mtl, MATTR_METALLIC, &uv);
+	}
+	if(attrmask & MATTR_SHININESS_BIT) {
+		hitm->shin = mtlattr_num(mtl, MATTR_SHININESS, &uv);
+	}
+}
+
+float mtlattr_num(const struct material *mtl, int attr, cgm_vec2 *uv)
 {
 	cgm_vec3 texel;
 
@@ -318,7 +359,7 @@ float mtlattr_num(struct material *mtl, int attr, cgm_vec2 *uv)
 	return mtl->attr[attr].value.x;
 }
 
-void mtlattr_vec(cgm_vec3 *res, struct material *mtl, int attr, cgm_vec2 *uv)
+void mtlattr_vec(cgm_vec3 *res, const struct material *mtl, int attr, cgm_vec2 *uv)
 {
 	if(mtl->attr[attr].tex) {
 		tex_lookup(res, mtl->attr[attr].tex, uv->x, uv->y);
@@ -351,10 +392,10 @@ void tex_lookup(cgm_vec3 *res, struct image *img, float u, float v)
 	}
 }
 
-void mtlprint(FILE *fp, struct material *mtl)
+void mtlprint(FILE *fp, const struct material *mtl)
 {
-	static const char *aname[] = {"color", "specular", "emit", "transmit",
-		"roughness", "metallic", "shininess", "reflect"};
+	static const char *aname[] = {"color", "specular", "emit", "reflect",
+		"transmit", "roughness", "metallic", "shininess" };
 	int i;
 
 	fprintf(fp, "Material: %s\n", mtl->name);

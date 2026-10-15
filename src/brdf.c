@@ -5,20 +5,23 @@
 
 static void lambert_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir,
 		struct rayhit *hit);
-static float lambert_sample(cgm_vec3 *dir, struct rayhit *hit);
+static void lambert_sample(cgm_vec3 *dir, struct rayhit *hit);
+static float lambert_pdf(cgm_vec3 dir, struct rayhit *hit);
 
 static void phong_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir,
 		struct rayhit *hit);
-static float phong_sample(cgm_vec3 *dir, struct rayhit *hit);
+static void phong_sample(cgm_vec3 *dir, struct rayhit *hit);
+static float phong_pdf(cgm_vec3 dir, struct rayhit *hit);
 
 static void ggx_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir,
 		struct rayhit *hit);
-static float ggx_sample(cgm_vec3 *dir, struct rayhit *hit);
+static void ggx_sample(cgm_vec3 *dir, struct rayhit *hit);
+static float ggx_pdf(cgm_vec3 dir, struct rayhit *hit);
 
 
-struct brdf lambert_brdf = { lambert_eval, lambert_sample };
-struct brdf phong_brdf = { phong_eval, phong_sample };
-struct brdf ggx_brdf = { ggx_eval, ggx_sample };
+struct brdf lambert_brdf = { lambert_eval, lambert_sample, lambert_pdf };
+struct brdf phong_brdf = { phong_eval, phong_sample, phong_pdf };
+struct brdf ggx_brdf = { ggx_eval, ggx_sample, ggx_pdf };
 
 
 static void lambert_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir,
@@ -34,7 +37,7 @@ static void lambert_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vd
 	cgm_vscale(color, ndotl);
 }
 
-static float lambert_sample(cgm_vec3 *dir, struct rayhit *hit)
+static void lambert_sample(cgm_vec3 *dir, struct rayhit *hit)
 {
 	sphrand(dir, 0.999f);
 	cgm_vadd(dir, &hit->v.norm);
@@ -43,15 +46,18 @@ static float lambert_sample(cgm_vec3 *dir, struct rayhit *hit)
 	if(cgm_vdot(dir, &hit->v.norm) < 0.0f) {
 		cgm_vneg(dir);
 	}
+}
 
-	return cgm_vdot(dir, &hit->v.norm) / CGM_PI;
+static float lambert_pdf(cgm_vec3 dir, struct rayhit *hit)
+{
+	return cgm_vvdot(dir, hit->v.norm) / CGM_PI;
 }
 
 static void phong_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir,
 		struct rayhit *hit)
 {
 	cgm_vec3 hdir;
-	float shin, ndoth;
+	float ndoth, shin;
 
 	mtlattr_vec(color, hit->mtl, MATTR_SPECULAR, &hit->v.tex);
 	shin = mtlattr_num(hit->mtl, MATTR_SHININESS, &hit->v.tex);
@@ -68,9 +74,14 @@ static void phong_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir
 	cgm_vscale(color, pow(ndoth, shin));
 }
 
-static float phong_sample(cgm_vec3 *dir, struct rayhit *hit)
+static void phong_sample(cgm_vec3 *dir, struct rayhit *hit)
 {
-	/* TODO: lafortune */
+	/* TODO lafortune */
+}
+
+static float phong_pdf(cgm_vec3 dir, struct rayhit *hit)
+{
+	/* TODO lafortune */
 	return 0.0f;
 }
 
@@ -82,17 +93,19 @@ static void ggx_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir,
 static cgm_vec3 sample_ggx_vndf(cgm_vec3 n, cgm_vec3 v, float rough);
 static float pdf_ggx_vndf(cgm_vec3 n, cgm_vec3 dir_out, cgm_vec3 dir_in, float rough);
 
-static float ggx_sample(cgm_vec3 *dir, struct rayhit *hit)
+static void ggx_sample(cgm_vec3 *dir, struct rayhit *hit)
 {
-	float rough;
 	cgm_vec3 hvec;
-
-	rough = mtlattr_num(hit->mtl, MATTR_ROUGHNESS, &hit->v.tex);
+	float rough = mtlattr_num(hit->mtl, MATTR_ROUGHNESS, &hit->v.tex);
 
 	hvec = sample_ggx_vndf(hit->v.norm, hit->vdir, rough);
 	*dir = cgm_vvreflect(hit->vdir, hvec);
+}
 
-	return pdf_ggx_vndf(hit->v.norm, *dir, hit->vdir, rough);
+static float ggx_pdf(cgm_vec3 dir, struct rayhit *hit)
+{
+	float rough = mtlattr_num(hit->mtl, MATTR_ROUGHNESS, &hit->v.tex);
+	return pdf_ggx_vndf(hit->v.norm, dir, hit->vdir, rough);
 }
 
 /* GGX sampling routine from:

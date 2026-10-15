@@ -33,11 +33,11 @@ void pt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 	cgm_vnormalize(&hit->v.norm);
 	n = hit->v.norm;
 
-	mtlattr_vec(&mcol, hit->mtl, MATTR_COLOR, &hit->v.tex);
-	mrough = mtlattr_num(hit->mtl, MATTR_ROUGHNESS, &hit->v.tex);
-	mtrans = mtlattr_num(hit->mtl, MATTR_TRANSMIT, &hit->v.tex);
+	mtlattr_vec(&mcol, mtl, MATTR_COLOR, &hit->v.tex);
+	mrough = mtlattr_num(mtl, MATTR_ROUGHNESS, &hit->v.tex);
+	mtrans = mtlattr_num(mtl, MATTR_TRANSMIT, &hit->v.tex);
 
-	mtlattr_vec(color, hit->mtl, MATTR_EMIT, &hit->v.tex);
+	mtlattr_vec(color, mtl, MATTR_EMIT, &hit->v.tex);
 
 #ifdef USE_OIDN
 	if(!auxdata.valid) {

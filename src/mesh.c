@@ -12,6 +12,7 @@
 static struct mesh *conv_mesh(struct mf_mesh *mfm, const char *path_prefix);
 int conv_mtl(struct material *mtl, struct mf_material *mmtl, const char *path_prefix);
 static struct image *load_texture(const char *fname, const char *path_prefix);
+static struct image *load_texture_mem(struct mf_image_data *imgdata);
 static void calc_face_normal(struct triangle *tri);
 
 
@@ -24,7 +25,7 @@ int load_scenefile(struct scenefile *scn, const char *fname)
 
 	memset(scn, 0, sizeof *scn);
 
-	if(!(mf = mf_alloc()) || mf_load(mf, fname, 0) == -1) {
+	if(!(mf = mf_alloc()) || mf_load(mf, fname, MF_APPLY_XFORM) == -1) {
 		goto err;
 	}
 
@@ -135,6 +136,7 @@ static struct mesh *conv_mesh(struct mf_mesh *mfm, const char *path_prefix)
 			}
 			if(mfm->texcoord) {
 				tri->v[j].tex = CONV_VEC2(mfm->texcoord[vidx]);
+				tri->v[j].tex.y = 1.0f - tri->v[j].tex.y;
 			}
 		}
 		calc_face_normal(tri);
@@ -156,27 +158,39 @@ err:
 
 int conv_mtl(struct material *mtl, struct mf_material *mmtl, const char *path_prefix)
 {
+	/* XXX this must correspond to the MATTR_ enum in rt.h */
 	static const enum mf_mtlattr_type mfattr[] = {
 		MF_COLOR,
 		MF_SPECULAR,
 		MF_EMISSIVE,
+		MF_REFLECT,
 		MF_TRANSMIT,
 		MF_ROUGHNESS,
 		MF_METALLIC,
-		MF_SHININESS,
-		MF_REFLECT
+		MF_SHININESS
 	};
 
 	int i, j, npixels;
 	struct image *img;
 	float *src, *dest;
+	struct mf_texmap *mftex;
 
 	if(mmtl->name && !(mtl->name = strdup(mmtl->name))) {
 		return -1;
 	}
 	for(i=0; i<NUM_MATTR; i++) {
 		mtl->attr[i].value = CONV_VEC3(mmtl->attr[mfattr[i]].val);
-		if((img = load_texture(mmtl->attr[mfattr[i]].map.name, path_prefix))) {
+
+		mftex = &mmtl->attr[mfattr[i]].map;
+		if(mftex->imgdata) {
+			img = load_texture_mem(mftex->imgdata);
+		} else if(mftex->name) {
+			img = load_texture(mftex->name, path_prefix);
+		} else {
+			continue;
+		}
+
+		if(img) {
 			mtl->attr[i].tex = img;
 
 			if(i == MATTR_COLOR && img->alpha) {
@@ -206,7 +220,13 @@ int conv_mtl(struct material *mtl, struct mf_material *mmtl, const char *path_pr
 	mtl->ior = mmtl->attr[MF_IOR].val.x;
 	mtl->metal = mtl->attr[MATTR_METALLIC].value.x > 1e-4;
 
-	if((img = load_texture(mmtl->attr[MF_ALPHA].map.name, path_prefix))) {
+	mftex = &mmtl->attr[MF_ALPHA].map;
+	if(mftex->imgdata) {
+		img = load_texture_mem(mftex->imgdata);
+	} else {
+		img = load_texture(mftex->name, path_prefix);
+	}
+	if(img) {
 		printf("using alpha texture %s as mask\n", img->name);
 		mtl->mask = img;
 	}
@@ -226,7 +246,16 @@ static struct image *load_texture(const char *fname, const char *path_prefix)
 	} else {
 		path = (char*)fname;
 	}
-	return get_image(path);
+	return get_image(path, 0, 0);
+}
+
+static struct image *load_texture_mem(struct mf_image_data *imgdata)
+{
+	if(!imgdata || !imgdata->data || imgdata->size <= 0) {
+		return 0;
+	}
+
+	return get_image(imgdata->name, imgdata->data, imgdata->size);
 }
 
 static void calc_face_normal(struct triangle *tri)
@@ -241,64 +270,3 @@ static void calc_face_normal(struct triangle *tri)
 	cgm_vcross(&tri->norm, &va, &vb);
 	cgm_vnormalize(&tri->norm);
 }
-
-#if 0
-static char *cleanline(char *s)
-{
-	char *ptr;
-
-	if((ptr = strchr(s, '#'))) *ptr = 0;
-
-	while(*s && isspace(*s)) s++;
-	ptr = s + strlen(s) - 1;
-	while(ptr >= s && isspace(*ptr)) *ptr-- = 0;
-
-	return *s ? s : 0;
-}
-
-static void conv_mtl(struct material *mm, struct objmtl *om, const char *path_prefix)
-{
-	char *fname = 0, *suffix = 0;
-	int len, prefix_len, maxlen = 0;
-
-	memset(mm, 0, sizeof *mm);
-	mm->name = strdup(om->name);
-	mm->attr[MATTR_COLOR].value = om->kd;
-	mm->attr[MATTR_SPECULAR].value = om->ks;
-	mm->attr[MATTR_SHININESS].value.x = om->shin;
-	mm->attr[MATTR_EMIT].value = om->ke;
-	if(om->valid & MTL_ROUGHNESS) {
-		mm->attr[MATTR_ROUGHNESS].value.x = om->roughness;
-	} else {
-		mm->attr[MATTR_ROUGHNESS].value.x = 1.0f - (om->ks.x + om->ks.y + om->ks.z) / 3.0f;
-	}
-	mm->attr[MATTR_METALLIC].value.x = om->metallic;
-	mm->attr[MATTR_REFLECT].value.x = om->refl;
-	mm->attr[MATTR_TRANSMIT].value.x = 1.0f - om->alpha;
-	mm->metal = om->metallic > 0.001;
-
-	if(om->map_kd && (len = strlen(om->map_kd)) > maxlen) maxlen = len;
-	if(om->map_ke && (len = strlen(om->map_ke)) > maxlen) maxlen = len;
-	if(om->map_alpha && (len = strlen(om->map_alpha)) > maxlen) maxlen = len;
-
-	if(maxlen) {
-		prefix_len = strlen(path_prefix);
-		fname = alloca(maxlen + prefix_len + 2);
-		suffix = fname + prefix_len;
-		strcpy(fname, path_prefix);
-	}
-
-	if(om->map_kd) {
-		strcpy(suffix, om->map_kd);
-		mm->attr[MATTR_COLOR].tex = get_image(fname);
-	}
-	if(om->map_ke) {
-		strcpy(suffix, om->map_ke);
-		mm->attr[MATTR_COLOR].tex = get_image(fname);
-	}
-	if(om->map_alpha) {
-		strcpy(suffix, om->map_alpha);
-		mm->mask = get_image(fname);
-	}
-}
-#endif

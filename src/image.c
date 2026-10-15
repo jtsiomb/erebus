@@ -13,16 +13,24 @@ static int ispow2(unsigned int x);
 static int calc_shift(int x);
 
 
-int load_image(struct image *img, const char *fname)
+int load_image(struct image *img, const char *fname, const void *mem, size_t len)
 {
 	int has_alpha = 0;
 	unsigned int i, npixels;
 	float *dest, *ptr;
 
-	printf("loading image: %s\n", fname);
-	if(!(img->pixels = img_load_pixels(fname, &img->width, &img->height, IMG_FMT_RGBAF))) {
-		fprintf(stderr, "load_image: failed to load %s\n", fname);
-		return -1;
+	if(mem) {
+		printf("loading image from memory: %s\n", fname ? fname : "unnamed");
+		if(!(img->pixels = img_load_pixels_mem(mem, len, &img->width, &img->height, IMG_FMT_RGBAF))) {
+			fprintf(stderr, "load_image (mem) failed\n");
+			return -1;
+		}
+	} else if(fname) {
+		printf("loading image: %s\n", fname);
+		if(!(img->pixels = img_load_pixels(fname, &img->width, &img->height, IMG_FMT_RGBAF))) {
+			fprintf(stderr, "load_image: failed to load %s\n", fname);
+			return -1;
+		}
 	}
 
 	/* split out the alpha channel */
@@ -109,7 +117,7 @@ int remove_image(const char *name)
 	return rb_delete(imgdb, (void*)name);
 }
 
-struct image *get_image(const char *name)
+struct image *get_image(const char *name, const void *mem, size_t len)
 {
 	struct rbnode *node;
 	struct image *img;
@@ -122,7 +130,7 @@ struct image *get_image(const char *name)
 		fprintf(stderr, "get_image: failed to allocate image\n");
 		return 0;
 	}
-	if(load_image(img, name) == -1) {
+	if(load_image(img, name, mem, len) == -1) {
 		free(img);
 		return 0;
 	}

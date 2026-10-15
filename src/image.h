@@ -1,6 +1,8 @@
 #ifndef IMAGE_H_
 #define IMAGE_H_
 
+#include <stddef.h>
+
 struct image {
 	char *name;
 	int width, height;
@@ -9,12 +11,12 @@ struct image {
 	float *alpha;
 };
 
-int load_image(struct image *img, const char *fname);
+int load_image(struct image *img, const char *fname, const void *mem, size_t len);
 void destroy_image(struct image *img);
 
 int add_image(struct image *img);
 int remove_image(const char *name);
-struct image *get_image(const char *name);
+struct image *get_image(const char *name, const void *mem, size_t len);
 
 void dbg_dump_images(void);
 

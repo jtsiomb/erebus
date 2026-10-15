@@ -18,15 +18,33 @@ enum {
 	MATTR_COLOR,		/* PBR: albedo, phong: diffuse */
 	MATTR_SPECULAR,		/* phong: specular color */
 	MATTR_EMIT,
+	MATTR_REFLECT,		/* phong: reflectivity */
 	MATTR_TRANSMIT,
 	MATTR_ROUGHNESS,	/* PBR: roughness */
 	MATTR_METALLIC,		/* PBR: metallic */
 	MATTR_SHININESS,	/* phong: specular exponent */
 
-	MATTR_REFLECT,		/* phong: reflectivity */
-
 	NUM_MATTR
 };
+
+enum {
+	MATTR_COLOR_BIT		= 1 << MATTR_COLOR,
+	MATTR_SPECULAR_BIT	= 1 << MATTR_SPECULAR,
+	MATTR_EMIT_BIT		= 1 << MATTR_EMIT,
+	MATTR_REFLECT_BIT	= 1 << MATTR_REFLECT,
+	MATTR_TRANSMIT_BIT	= 1 << MATTR_TRANSMIT,
+	MATTR_ROUGHNESS_BIT	= 1 << MATTR_ROUGHNESS,
+	MATTR_METALLIC_BIT	= 1 << MATTR_METALLIC,
+	MATTR_SHININESS_BIT	= 1 << MATTR_SHININESS
+};
+
+#define MATTR_ALL_BITS		0x7fff
+#define MATTR_COMMON_BITS \
+	(MATTR_COLOR_BIT | MATTR_EMIT_BIT | MATTR_TRANSMIT_BIT)
+#define MATTR_PBR_BITS \
+	(MATTR_COMMON_BITS | MATTR_ROUGHNESS_BIT | MATTR_METALLIC_BIT)
+#define MATTR_PHONG_BITS \
+	(MATTR_COMMON_BITS | MATTR_SPECULAR_BIT | MATTR_REFLECT_BIT | MATTR_SHININESS_BIT)
 
 struct material {
 	char *name;
@@ -34,6 +52,13 @@ struct material {
 	float ior;
 	int metal;
 	struct image *mask;
+};
+
+/* evaluated attributes at the hit point */
+struct hitmaterial {
+	cgm_vec3 color, spec, emit;
+	float refl, trans, rough, metallic, shin;
+	float ior;
 };
 
 struct framebuffer {
@@ -96,10 +121,12 @@ void bgcolor(cgm_vec3 *color, cgm_ray *ray);
 
 float fresnel(float costheta, float ior);
 
-float mtlattr_num(struct material *mtl, int attr, cgm_vec2 *uv);
-void mtlattr_vec(cgm_vec3 *res, struct material *mtl, int attr, cgm_vec2 *uv);
+void eval_material(struct hitmaterial *hitm, const struct material *mtl,
+		cgm_vec2 uv, unsigned int attrmask);
+float mtlattr_num(const struct material *mtl, int attr, cgm_vec2 *uv);
+void mtlattr_vec(cgm_vec3 *res, const struct material *mtl, int attr, cgm_vec2 *uv);
 void tex_lookup(cgm_vec3 *res, struct image *img, float u, float v);
-void mtlprint(FILE *fp, struct material *mtl);
+void mtlprint(FILE *fp, const struct material *mtl);
 
 static INLINE float frand(void)
 {

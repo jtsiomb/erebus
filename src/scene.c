@@ -305,7 +305,7 @@ next:	node = node->next;
 	}
 }
 
-enum { OP_SET, OP_SCALE };
+enum { OP_SET, OP_SCALE, OP_TEX };
 
 struct {
 	char *name;
@@ -313,8 +313,20 @@ struct {
 } mtlops[] = {
 	{"set", OP_SET},
 	{"scale", OP_SCALE},
+	{"texture", OP_TEX},
 	{0, 0}
 };
+
+static void mtlop_tex(int op, struct mtlattr *ma, struct ts_value *val)
+{
+	if(op != OP_TEX) return;
+
+	if(val->type == TS_NUMBER) {
+		if(val->inum == 0) ma->tex = 0;
+	} else {
+		ma->tex = get_image(val->str, 0, 0);
+	}
+}
 
 static void mtlop_vec(int op, float *vptr, float *data, int nelem)
 {
@@ -376,30 +388,30 @@ static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlpr
 
 	if(strcmp(mtlprop, "color") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_COLOR].value.x, opval, 3);
+		mtlop_tex(op, &mtl->attr[MATTR_COLOR], &opattr->val);
 	} else if(strcmp(mtlprop, "specular") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_SPECULAR].value.x, opval, 3);
+		mtlop_tex(op, &mtl->attr[MATTR_SPECULAR], &opattr->val);
 	} else if(strcmp(mtlprop, "emit") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_EMIT].value.x, opval, 3);
+		mtlop_tex(op, &mtl->attr[MATTR_EMIT], &opattr->val);
 	} else if(strcmp(mtlprop, "roughness") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_ROUGHNESS].value.x, opval, 1);
+		mtlop_tex(op, &mtl->attr[MATTR_ROUGHNESS], &opattr->val);
 	} else if(strcmp(mtlprop, "ior") == 0) {
 		mtlop_vec(op, &mtl->ior, opval, 1);
 	} else if(strcmp(mtlprop, "reflect") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_REFLECT].value.x, opval, 1);
+		mtlop_tex(op, &mtl->attr[MATTR_REFLECT], &opattr->val);
 	} else if(strcmp(mtlprop, "transmit") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_TRANSMIT].value.x, opval, 1);
+		mtlop_tex(op, &mtl->attr[MATTR_TRANSMIT], &opattr->val);
 	} else if(strcmp(mtlprop, "metal") == 0) {
 		if(op != OP_SET || opattr->val.type != TS_NUMBER) {
 			fprintf(stderr, "mtl edit: invalid operation or attribute type for metal\n");
 			return -1;
 		}
 		mtl->metal = opattr->val.inum != 0;
-	} else if(strcmp(mtlprop, "texture") == 0) {
-		if(op != OP_SET) {
-			fprintf(stderr, "mtl edit: invalid operation for textures\n");
-			return -1;
-		}
-		/* TODO: lookup in the texture db/load, and set pointer */
 	}
 
 	/* copy the modified material to every other instance */
@@ -443,11 +455,12 @@ int read_scene_node(struct node *node, struct ts_node *tsn)
 
 	if((vec = ts_get_attr_vec(tsn, "lookat", 0))) {
 		/* lookat target overrides rotation */
-		cgm_vcons(&dir, vec[0] - node->pos.x, vec[1] - node->pos.y, vec[2] - node->pos.z);
+		dir = cgm_vvsub(cgm_vvec(vec[0], vec[1], vec[2]), node->pos);
 		cgm_vnormalize(&dir);
-		cgm_vcons(&up, 0, 1, 0);
-		if(fabs(cgm_vdot(&up, &dir)) < 1e-4) {
+		if(fabs(dir.y) >= 0.999) {
 			cgm_vcons(&up, 0, 0, 1);
+		} else {
+			cgm_vcons(&up, 0, 1, 0);
 		}
 		cgm_mlookat(matrix, &node->pos, (cgm_vec3*)vec, &up);
 		cgm_mget_rotation(matrix, &node->rot);
