@@ -163,19 +163,7 @@ diff -ru oidn-2.3.3/include/OpenImageDenoise/oidn.h oidn-erebus/include/OpenImag
  
  #pragma once
  
-@@ -7,14 +7,18 @@
- #include <stdbool.h>
- #include <stdint.h>
- 
--#include "config.h"
-+/*#include "config.h"*/
-+#define OIDN_API
-+#define OIDN_API_NAMESPACE_BEGIN
-+#define OIDN_API_NAMESPACE_END
-+#define OIDN_DEPRECATED(x)
- 
- #if defined(__cplusplus)
-   #if defined(SYCL_LANGUAGE_VERSION)
+@@ -14,7 +14,7 @@
      #include <sycl/sycl.hpp>
      #define OIDN_SYCL_HPP
    #elif defined(SYCL_FEATURE_SET_FULL) || defined(SYCL_FEATURE_SET_REDUCED)

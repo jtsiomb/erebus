@@ -21,6 +21,9 @@ Denoiser
 Erebus can be optionally compiled with denoising support through the Intel Open
 Image Denoiser (OIDN): https://www.openimagedenoise.org
 
+Specifically this was tested with OIDN v2.3.3 which can be downloaded from:
+https://github.com/RenderKit/oidn/releases/download/v2.3.3/oidn-2.3.3.src.tar.gz
+
 To build erebus with OIDN support, follow these steps:
 
   1. By default OIDN includes ~50mb of neural network weight data for different
@@ -34,12 +37,12 @@ To build erebus with OIDN support, follow these steps:
     cmake -DOIDN_APPS=OFF -DOIDN_DEVICE_CUDA=OFF -DOIDN_DEVICE_HIP=OFF \
           -DOIDN_DEVICE_SYCL=OFF -DOIDN_FILTER_RTLIGHTMAP=OFF \
           -DOIDN_LIBRARY_NAME=oidn -DOIDN_STATIC_LIB=ON ..
+    make
 
   3. Copy the three `liboidn*.a` files from the build directory to erebus
      `libs/oidn/`.
 
   4. Copy the header files `oidn.h` and `config.h` from
-     `include/OpenImageDenoise` to erebus `libs/oidn`. If you applied the
-     debloat patch in step 1, skip `config.h`.
+     `include/OpenImageDenoise` to erebus `libs/oidn`.
 
   5. Create a `cfg.mk` file with the line `oidn = true`

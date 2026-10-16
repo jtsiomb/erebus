@@ -1,0 +1,56 @@
+name: GNU/Linux build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: install dependencies (oidn)
+      run: |
+        sudo apt-get update
+        sudo apt-get install libtbb-dev ispc
+
+    - name: cache oidn
+      id: cache-oidn
+      uses: actions/cache@v3
+      with:
+        path: oidn-2.3.3.src.tar.gz
+        key: oidn-cache
+
+    - name: download oidn
+      if: steps.cache-oidn.outputs.cache-hit != 'true'
+      run: |
+        wget -nv https://github.com/RenderKit/oidn/releases/download/v2.3.3/oidn-2.3.3.src.tar.gz
+
+    - name: build Open Image Denoise
+      run: |
+        tar xzf oidn-2.3.3.src.tar.gz && cd oidn-2.3.3
+        patch -p1 <../libs/oidn/oidn-debloat.patch
+        mkdir build && cd build
+        cmake -DOIDN_APPS=OFF -DOIDN_DEVICE_CUDA=OFF -DOIDN_DEVICE_HIP=OFF \
+          -DOIDN_DEVICE_SYCL=OFF -DOIDN_FILTER_RTLIGHTMAP=OFF \
+          -DOIDN_LIBRARY_NAME=oidn -DOIDN_STATIC_LIB=ON ..
+        make -j16
+        cp liboidn*.a ../../libs/oidn
+        cd ..
+        cp include/OpenImageDenoise/oidn.h ../libs/oidn
+        cp include/OpenImageDenoise/config.h ../libs/oidn
+
+    - name: build erebus with OIDN
+      run: |
+        echo 'oidn = true' >cfg.mk
+        make -j16
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: erebus-gnulinux
+        path: erebus
+
+# vi:ts=2 sts=2 sw=2 expandtab:
