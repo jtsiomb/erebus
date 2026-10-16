@@ -52,6 +52,8 @@ struct material {
 	float ior;
 	int metal;
 	struct image *mask;
+
+	struct material *next;
 };
 
 /* evaluated attributes at the hit point */
@@ -121,6 +123,8 @@ void bgcolor(cgm_vec3 *color, cgm_ray *ray);
 
 float fresnel(float costheta, float ior);
 
+int init_material(struct material *mtl);
+void destroy_material(struct material *mtl);
 void eval_material(struct hitmaterial *hitm, const struct material *mtl,
 		cgm_vec2 uv, unsigned int attrmask);
 float mtlattr_num(const struct material *mtl, int attr, cgm_vec2 *uv);

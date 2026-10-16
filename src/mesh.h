@@ -12,11 +12,14 @@ struct mesh {
 
 	struct aabox aabb;
 
-	struct material mtl;
+	struct material *mtl;
 	struct mesh *next;
 };
 
 struct scenefile {
+	struct material *mtllist;
+	int num_mtl;
+
 	struct mesh *meshlist;
 	int num_meshes;
 

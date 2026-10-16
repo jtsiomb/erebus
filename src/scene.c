@@ -52,7 +52,7 @@ int load_scene(struct scene *scn, const char *fname)
 	int len, max_path_len = 0;
 	struct ts_node *root, *node;
 	struct scenefile sf;
-	struct mesh *mesh, *tail;
+	struct mesh *mesh, *meshtail;
 	unsigned long start_time;
 	float *vec, num;
 
@@ -124,18 +124,26 @@ int load_scene(struct scene *scn, const char *fname)
 			/* perform any edits on the loaded scene */
 			proc_edits(node, &sf);
 
-			mesh = tail = sf.meshlist;
+			/* handle meshes */
+			mesh = meshtail = sf.meshlist;
 			while(mesh) {
 				add_mesh_faces(scn->st_root, mesh);
-				tail = mesh;
+				meshtail = mesh;
 				mesh = mesh->next;
 			}
 
-			if(tail) {
-				tail->next = scn->meshlist;
+			if(meshtail) {
+				meshtail->next = scn->meshlist;
 				scn->meshlist = sf.meshlist;
 				sf.meshlist = 0;
 			}
+
+			scn->mtllist = sf.mtllist;
+			sf.mtllist = 0;
+
+			scn->lightlist = sf.lightlist;
+			sf.lightlist = 0;
+
 			destroy_scenefile(&sf);
 
 		} else if(strcmp(node->name, "camera") == 0) {
@@ -343,8 +351,6 @@ static void mtlop_vec(int op, float *vptr, float *data, int nelem)
 static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlprop, struct scenefile *sf)
 {
 	int i, op;
-	char *name;
-	struct mesh *mesh;
 	struct material *mtl = 0;
 	struct ts_attr *opattr = 0;
 	float opval[3] = {0};
@@ -372,14 +378,13 @@ static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlpr
 		break;
 	}
 
-	/* find the first instance of the named material */
-	mesh = sf->meshlist;
-	while(mesh) {
-		if(strcmp(mesh->mtl.name, mtlname) == 0) {
-			mtl = &mesh->mtl;
+	/* find the named material */
+	mtl = sf->mtllist;
+	while(mtl) {
+		if(strcmp(mtl->name, mtlname) == 0) {
 			break;
 		}
-		mesh = mesh->next;
+		mtl = mtl->next;
 	}
 	if(!mtl) {
 		fprintf(stderr, "mtl edit: no matching material: %s\n", mtlname);
@@ -412,17 +417,6 @@ static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlpr
 			return -1;
 		}
 		mtl->metal = opattr->val.inum != 0;
-	}
-
-	/* copy the modified material to every other instance */
-	mesh = mesh->next;
-	while(mesh) {
-		if(strcmp(mesh->mtl.name, mtlname) == 0) {
-			name = mesh->mtl.name;
-			mesh->mtl = *mtl;
-			mesh->mtl.name = name;	/* don't clobber the strdup'ed name */
-		}
-		mesh = mesh->next;
 	}
 	return 0;
 }

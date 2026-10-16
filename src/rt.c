@@ -307,6 +307,27 @@ float fresnel(float costheta, float ior)
 	return r0 + (1.0f - r0) * (xsq * xsq * x);
 }
 
+int init_material(struct material *mtl)
+{
+	memset(mtl, 0, sizeof *mtl);
+
+	if(!(mtl->name = strdup("default material"))) {
+		return -1;
+	}
+
+	cgm_vcons(&mtl->attr[MATTR_COLOR].value, 0.6, 0.6, 0.6);
+	mtl->attr[MATTR_ROUGHNESS].value.x = 1.0f;
+	mtl->metal = 0;
+	return 0;
+}
+
+void destroy_material(struct material *mtl)
+{
+	if(!mtl) return;
+
+	free(mtl->name);
+}
+
 void eval_material(struct hitmaterial *hitm, const struct material *mtl,
 		cgm_vec2 uv, unsigned int attrmask)
 {

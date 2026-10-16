@@ -9,11 +9,13 @@
 #include "imago2.h"
 
 
-static struct mesh *conv_mesh(struct mf_mesh *mfm, const char *path_prefix);
-int conv_mtl(struct material *mtl, struct mf_material *mmtl, const char *path_prefix);
+static struct mesh *conv_mesh(struct scenefile *scn, struct mf_mesh *mfm);
+static struct material *conv_mtl(struct mf_material *mmtl, const char *path_prefix);
 static struct image *load_texture(const char *fname, const char *path_prefix);
 static struct image *load_texture_mem(struct mf_image_data *imgdata);
 static void calc_face_normal(struct triangle *tri);
+
+static struct material def_mtl;
 
 
 int load_scenefile(struct scenefile *scn, const char *fname)
@@ -21,7 +23,12 @@ int load_scenefile(struct scenefile *scn, const char *fname)
 	unsigned int i, count, tricount = 0;
 	struct mf_meshfile *mf;
 	struct mesh *mesh;
+	struct material *mtl;
 	char *path_prefix, *sptr, *endp;
+
+	if(!def_mtl.name) {
+		init_material(&def_mtl);
+	}
 
 	memset(scn, 0, sizeof *scn);
 
@@ -41,9 +48,19 @@ int load_scenefile(struct scenefile *scn, const char *fname)
 	}
 	*endp = 0;
 
+	count = mf_num_materials(mf);
+	for(i=0; i<count; i++) {
+		if(!(mtl = conv_mtl(mf_get_material(mf, i), path_prefix))) {
+			goto err;
+		}
+		mtl->next = scn->mtllist;
+		scn->mtllist = mtl;
+		scn->num_mtl++;
+	}
+
 	count = mf_num_meshes(mf);
 	for(i=0; i<count; i++) {
-		if(!(mesh = conv_mesh(mf_get_mesh(mf, i), path_prefix))) {
+		if(!(mesh = conv_mesh(scn, mf_get_mesh(mf, i)))) {
 			goto err;
 		}
 		mesh->next = scn->meshlist;
@@ -74,6 +91,14 @@ void destroy_scenefile(struct scenefile *scn)
 {
 	struct mesh *m;
 	struct light *lt;
+	struct material *mtl;
+
+	while(scn->mtllist) {
+		mtl = scn->mtllist;
+		scn->mtllist = scn->mtllist->next;
+		destroy_material(mtl);
+		free(mtl);
+	}
 
 	while(scn->meshlist) {
 		m = scn->meshlist;
@@ -91,7 +116,6 @@ void destroy_scenefile(struct scenefile *scn)
 
 void destroy_mesh(struct mesh *m)
 {
-	free(m->mtl.name);
 	free(m->faces);
 	m->faces = 0;
 }
@@ -99,7 +123,7 @@ void destroy_mesh(struct mesh *m)
 #define CONV_VEC2(mfmv) (*(cgm_vec2*)&(mfmv))
 #define CONV_VEC3(mfmv)	(*(cgm_vec3*)&(mfmv))
 
-static struct mesh *conv_mesh(struct mf_mesh *mfm, const char *path_prefix)
+static struct mesh *conv_mesh(struct scenefile *scn, struct mf_mesh *mfm)
 {
 	unsigned int i, j, vidx;
 	struct mesh *m;
@@ -126,6 +150,20 @@ static struct mesh *conv_mesh(struct mf_mesh *mfm, const char *path_prefix)
 		m->name = strdup(mfm->name);
 	}
 
+	/* assign material */
+	m->mtl = scn->mtllist;
+	while(m->mtl) {
+		if(strcmp(m->mtl->name, mfm->mtl->name) == 0) {
+			break;
+		}
+		m->mtl = m->mtl->next;
+	}
+	if(!m->mtl) {
+		fprintf(stderr, "reference to unknown material: %s, use default\n", mfm->mtl->name);
+		m->mtl = &def_mtl;
+	}
+
+	/* convert geometry */
 	tri = m->faces;
 	for(i=0; i<mfm->num_faces; i++) {
 		for(j=0; j<3; j++) {
@@ -140,23 +178,14 @@ static struct mesh *conv_mesh(struct mf_mesh *mfm, const char *path_prefix)
 			}
 		}
 		calc_face_normal(tri);
-		tri->mtl = &m->mtl;
+		tri->mtl = m->mtl;
 		tri++;
 	}
 
-	/* convert material */
-	if(conv_mtl(&m->mtl, mfm->mtl, path_prefix) == -1) {
-		goto err;
-	}
 	return m;
-
-err:
-	destroy_mesh(m);
-	free(m);
-	return 0;
 }
 
-int conv_mtl(struct material *mtl, struct mf_material *mmtl, const char *path_prefix)
+static struct material *conv_mtl(struct mf_material *mmtl, const char *path_prefix)
 {
 	/* XXX this must correspond to the MATTR_ enum in rt.h */
 	static const enum mf_mtlattr_type mfattr[] = {
@@ -170,13 +199,19 @@ int conv_mtl(struct material *mtl, struct mf_material *mmtl, const char *path_pr
 		MF_SHININESS
 	};
 
+	struct material *mtl;
 	int i, j, npixels;
 	struct image *img;
 	float *src, *dest;
 	struct mf_texmap *mftex;
 
+	if(!(mtl = calloc(1, sizeof *mtl))) {
+		return 0;
+	}
+
 	if(mmtl->name && !(mtl->name = strdup(mmtl->name))) {
-		return -1;
+		free(mtl);
+		return 0;
 	}
 	for(i=0; i<NUM_MATTR; i++) {
 		mtl->attr[i].value = CONV_VEC3(mmtl->attr[mfattr[i]].val);
@@ -231,7 +266,7 @@ int conv_mtl(struct material *mtl, struct mf_material *mmtl, const char *path_pr
 		mtl->mask = img;
 	}
 
-	return 0;
+	return mtl;
 }
 
 static struct image *load_texture(const char *fname, const char *path_prefix)

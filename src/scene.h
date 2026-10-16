@@ -40,6 +40,7 @@ struct scene {
 	struct mesh *meshlist;
 	struct camera *camlist;
 	struct light *lightlist;
+	struct material *mtllist;
 };
 
 void init_scene_node(struct node *n);
