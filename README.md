@@ -3,6 +3,8 @@ erebus - photorealistic renderer
 
 ![Erebus](http://nuclear.mutantstargoat.com/sw/erebus/img/erebus_banner_med.jpg)
 
+![GNU/Linux build status](https://github.com/jtsiomb/erebus/actions/workflows/build_gnulinux.yml/badge.svg)
+
 About
 -----
 Erebus is a photorealistic renderer under development ...
