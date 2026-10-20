@@ -214,7 +214,7 @@ static void render_tile(struct tile *tile)
 #endif
 			primary_ray(&ray, tile->x + j, tile->y + i, tile->sample);
 			if(tile->sample) {
-				ray_trace(&col, &ray, 1.0f, opt.max_iter);
+				ray_trace(&col, &ray, 1.0f, 0);
 				fbptr[j].x += col.x;
 				fbptr[j].y += col.y;
 				fbptr[j].z += col.z;
@@ -230,7 +230,7 @@ static void render_tile(struct tile *tile)
 				}
 #endif
 			} else {
-				ray_trace((cgm_vec3*)(fbptr + j), &ray, 1.0f, opt.max_iter);
+				ray_trace((cgm_vec3*)(fbptr + j), &ray, 1.0f, 0);
 				fbptr[j].w = 1;
 #ifdef USE_OIDN
 				if(opt.denoise) {
@@ -268,12 +268,12 @@ void primary_ray(cgm_ray *ray, int x, int y, int sample)
 	cgm_rmul_mr(ray, view_xform);
 }
 
-void ray_trace(cgm_vec3 *color, cgm_ray *ray, float energy, int max_iter)
+void ray_trace(cgm_vec3 *color, cgm_ray *ray, float energy, int iter)
 {
 	struct rayhit hit;
 
-	if(max_iter && ray_scene(ray, &scn, FLT_MAX, &hit)) {
-		rend.shade(color, &hit, energy, max_iter);
+	if(iter < opt.max_iter && ray_scene(ray, &scn, FLT_MAX, &hit)) {
+		rend.shade(color, &hit, energy, iter);
 	} else {
 		rend.bgcolor(color, ray);
 		cgm_vscale(color, energy);

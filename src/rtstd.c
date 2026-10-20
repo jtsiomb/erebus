@@ -5,8 +5,7 @@
 #include "brdf.h"
 
 void rt_render_tile(struct tile *tile);
-void rt_bgcolor(cgm_vec3 *color, cgm_ray *ray);
-void rt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter);
+void rt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int iter);
 
 struct renderer rt_renderer = {
 	"ray tracer",
@@ -14,7 +13,7 @@ struct renderer rt_renderer = {
 	rt_shade
 };
 
-void rt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
+void rt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int iter)
 {
 	cgm_vec3 col, diffuse = {0}, specular = {0};
 	cgm_vec3 ks;
@@ -74,9 +73,9 @@ void rt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 
 		if(!mtl->metal) {
 			fres = fresnel(cgm_vvdot(hit->vdir, n), mtl->ior);
-			ray_trace(&col, &ray, refl * fres, max_iter - 1);
+			ray_trace(&col, &ray, refl * fres, iter + 1);
 		} else {
-			ray_trace(&col, &ray, refl, max_iter - 1);
+			ray_trace(&col, &ray, refl, iter + 1);
 		}
 
 		cgm_vmul(&col, &ks);
@@ -88,7 +87,7 @@ void rt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int max_iter)
 		ray.dir = cgm_vvneg(hit->vdir);
 		cgm_vrefract(&ray.dir, &n, mtl->ior);
 
-		ray_trace(&col, &ray, trans, max_iter - 1);
+		ray_trace(&col, &ray, trans, iter + 1);
 
 		cgm_vmul(&col, &ks);
 		cgm_vadd(&specular, &col);

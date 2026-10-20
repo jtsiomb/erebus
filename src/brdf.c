@@ -6,17 +6,17 @@
 static void lambert_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir,
 		struct rayhit *hit);
 static void lambert_sample(cgm_vec3 *dir, struct rayhit *hit);
-static float lambert_pdf(cgm_vec3 dir, struct rayhit *hit);
+static float lambert_pdf(cgm_vec3 dir, cgm_vec3 n, struct rayhit *hit);
 
 static void phong_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir,
 		struct rayhit *hit);
 static void phong_sample(cgm_vec3 *dir, struct rayhit *hit);
-static float phong_pdf(cgm_vec3 dir, struct rayhit *hit);
+static float phong_pdf(cgm_vec3 dir, cgm_vec3 n, struct rayhit *hit);
 
 static void ggx_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir,
 		struct rayhit *hit);
 static void ggx_sample(cgm_vec3 *dir, struct rayhit *hit);
-static float ggx_pdf(cgm_vec3 dir, struct rayhit *hit);
+static float ggx_pdf(cgm_vec3 dir, cgm_vec3 n, struct rayhit *hit);
 
 
 struct brdf lambert_brdf = { lambert_eval, lambert_sample, lambert_pdf };
@@ -48,9 +48,9 @@ static void lambert_sample(cgm_vec3 *dir, struct rayhit *hit)
 	}
 }
 
-static float lambert_pdf(cgm_vec3 dir, struct rayhit *hit)
+static float lambert_pdf(cgm_vec3 dir, cgm_vec3 n, struct rayhit *hit)
 {
-	return cgm_vvdot(dir, hit->v.norm) / CGM_PI;
+	return cgm_vvdot(dir, n) / CGM_PI;
 }
 
 static void phong_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir,
@@ -79,7 +79,7 @@ static void phong_sample(cgm_vec3 *dir, struct rayhit *hit)
 	/* TODO lafortune */
 }
 
-static float phong_pdf(cgm_vec3 dir, struct rayhit *hit)
+static float phong_pdf(cgm_vec3 dir, cgm_vec3 n, struct rayhit *hit)
 {
 	/* TODO lafortune */
 	return 0.0f;
@@ -102,10 +102,10 @@ static void ggx_sample(cgm_vec3 *dir, struct rayhit *hit)
 	*dir = cgm_vvreflect(hit->vdir, hvec);
 }
 
-static float ggx_pdf(cgm_vec3 dir, struct rayhit *hit)
+static float ggx_pdf(cgm_vec3 dir, cgm_vec3 n, struct rayhit *hit)
 {
 	float rough = mtlattr_num(hit->mtl, MATTR_ROUGHNESS, &hit->v.tex);
-	return pdf_ggx_vndf(hit->v.norm, dir, hit->vdir, rough);
+	return pdf_ggx_vndf(n, dir, hit->vdir, rough);
 }
 
 /* GGX sampling routine from:

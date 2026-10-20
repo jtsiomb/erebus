@@ -117,7 +117,7 @@ void set_fov(float fov);
 void render(int samplenum);
 
 void primary_ray(cgm_ray *ray, int x, int y, int sample);
-void ray_trace(cgm_vec3 *color, cgm_ray *ray, float energy, int max_iter);
+void ray_trace(cgm_vec3 *color, cgm_ray *ray, float energy, int iter);
 
 void bgcolor(cgm_vec3 *color, cgm_ray *ray);
 
