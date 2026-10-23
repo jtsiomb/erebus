@@ -58,6 +58,13 @@ static int full_redraw;
 static struct rect active[MAX_SHM_TILES];
 static int num_active;
 
+enum {
+	UPD_GAMMA = 1
+};
+
+static unsigned int pending = 0x7fff;
+static float gammaval = 2.2;
+
 
 int main(int argc, char **argv)
 {
@@ -242,7 +249,6 @@ int init(void)
 	if(!(sdr = create_program_load("sdr/vertex.glsl", "sdr/pixel.glsl"))) {
 		return -1;
 	}
-	set_uniform_float(sdr, "inv_gamma", 1.0f / 2.2f);
 
 	xpos_samp = glutBitmapLength(STATUS_FONT, "(888/888)");
 	xpos_prog = glutBitmapLength(STATUS_FONT, "100%00") + xpos_samp;
@@ -351,6 +357,10 @@ void display(void)
 
 	bind_program(sdr);
 
+	if(pending & UPD_GAMMA) {
+		set_uniform_float(sdr, "inv_gamma", 1.0f / gammaval);
+	}
+
 	glBegin(GL_QUADS);
 	glColor3f(1, 1, 1);
 	glTexCoord2f(0, 1);
@@ -394,6 +404,7 @@ void display(void)
 
 	glutSwapBuffers();
 	assert(glGetError() == GL_NO_ERROR);
+	pending = 0;
 }
 
 void reshape(int x, int y)
@@ -413,6 +424,17 @@ void keypress(unsigned char key, int x, int y)
 
 	case ' ':
 		kill(rend_pid, SIGCONT);
+		break;
+
+	case '=':
+		gammaval += 0.1;
+		pending |= UPD_GAMMA;
+		glutPostRedisplay();
+		break;
+	case '-':
+		gammaval -= 0.1;
+		pending |= UPD_GAMMA;
+		glutPostRedisplay();
 		break;
 
 	default:

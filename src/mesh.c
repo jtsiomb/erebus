@@ -253,7 +253,6 @@ static struct material *conv_mtl(struct mf_material *mmtl, const char *path_pref
 		}
 	}
 	mtl->ior = mmtl->attr[MF_IOR].val.x;
-	mtl->metal = mtl->attr[MATTR_METALLIC].value.x > 1e-4;
 
 	mftex = &mmtl->attr[MF_ALPHA].map;
 	if(mftex->imgdata) {

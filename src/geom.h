@@ -25,6 +25,7 @@ struct rayhit {
 	struct vertex v;
 	cgm_vec3 vdir;
 	struct material *mtl;
+	struct hitmaterial mtlval;
 };
 
 int ray_triangle(cgm_ray *ray, struct triangle *tri, float tmax, struct rayhit *hit);

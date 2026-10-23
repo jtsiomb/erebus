@@ -50,7 +50,6 @@ struct material {
 	char *name;
 	struct mtlattr attr[NUM_MATTR];
 	float ior;
-	int metal;
 	struct image *mask;
 
 	struct material *next;
@@ -122,6 +121,7 @@ void ray_trace(cgm_vec3 *color, cgm_ray *ray, float energy, int iter);
 void bgcolor(cgm_vec3 *color, cgm_ray *ray);
 
 float fresnel(float costheta, float ior);
+cgm_vec3 fresnel_rgb(float costheta, cgm_vec3 fres0);
 
 int init_material(struct material *mtl);
 void destroy_material(struct material *mtl);

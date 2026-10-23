@@ -45,6 +45,30 @@ void calc_node_matrix(struct node *n)
 	cgm_mpretranslate(n->matrix, -n->pivot.x, -n->pivot.y, -n->pivot.z);
 }
 
+static void conv_scene(struct scene *scn, struct scenefile *sf)
+{
+	struct mesh *mesh, *meshtail;
+
+	mesh = meshtail = sf->meshlist;
+	while(mesh) {
+		add_mesh_faces(scn->st_root, mesh);
+		meshtail = mesh;
+		mesh = mesh->next;
+	}
+
+	if(meshtail) {
+		meshtail->next = scn->meshlist;
+		scn->meshlist = sf->meshlist;
+		sf->meshlist = 0;
+	}
+
+	scn->mtllist = sf->mtllist;
+	sf->mtllist = 0;
+
+	scn->lightlist = sf->lightlist;
+	sf->lightlist = 0;
+}
+
 int load_scene(struct scene *scn, const char *fname)
 {
 	char *dirname, *ptr;
@@ -52,7 +76,6 @@ int load_scene(struct scene *scn, const char *fname)
 	int len, max_path_len = 0;
 	struct ts_node *root, *node;
 	struct scenefile sf;
-	struct mesh *mesh, *meshtail;
 	unsigned long start_time;
 	float *vec, num;
 
@@ -76,13 +99,12 @@ int load_scene(struct scene *scn, const char *fname)
 		*dirname = 0;
 	}
 
-	if(!(root = ts_load(fname))) {
-		fprintf(stderr, "load_scene: failed to load: %s\n", fname);
-		return -1;
-	}
-	if(strcmp(root->name, "erebus") != 0) {
-		fprintf(stderr, "load_scene: invalid scene file %s, root is not \"erebus\"\n", fname);
+	if(!(root = ts_load(fname)) || strcmp(root->name, "erebus") != 0) {
 		ts_free_tree(root);
+		if(load_scenefile(&sf, fname) == -1) {
+			fprintf(stderr, "load_scene: invalid scene file %s\n", fname);
+			return 0;
+		}
 		return -1;
 	}
 
@@ -124,25 +146,7 @@ int load_scene(struct scene *scn, const char *fname)
 			/* perform any edits on the loaded scene */
 			proc_edits(node, &sf);
 
-			/* handle meshes */
-			mesh = meshtail = sf.meshlist;
-			while(mesh) {
-				add_mesh_faces(scn->st_root, mesh);
-				meshtail = mesh;
-				mesh = mesh->next;
-			}
-
-			if(meshtail) {
-				meshtail->next = scn->meshlist;
-				scn->meshlist = sf.meshlist;
-				sf.meshlist = 0;
-			}
-
-			scn->mtllist = sf.mtllist;
-			sf.mtllist = 0;
-
-			scn->lightlist = sf.lightlist;
-			sf.lightlist = 0;
+			conv_scene(scn, &sf);
 
 			destroy_scenefile(&sf);
 
@@ -412,11 +416,8 @@ static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlpr
 		mtlop_vec(op, &mtl->attr[MATTR_TRANSMIT].value.x, opval, 1);
 		mtlop_tex(op, &mtl->attr[MATTR_TRANSMIT], &opattr->val);
 	} else if(strcmp(mtlprop, "metal") == 0) {
-		if(op != OP_SET || opattr->val.type != TS_NUMBER) {
-			fprintf(stderr, "mtl edit: invalid operation or attribute type for metal\n");
-			return -1;
-		}
-		mtl->metal = opattr->val.inum != 0;
+		mtlop_vec(op, &mtl->attr[MATTR_METALLIC].value.x, opval, 1);
+		mtlop_tex(op, &mtl->attr[MATTR_METALLIC], &opattr->val);
 	}
 	return 0;
 }
