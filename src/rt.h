@@ -40,11 +40,11 @@ enum {
 
 #define MATTR_ALL_BITS		0x7fff
 #define MATTR_COMMON_BITS \
-	(MATTR_COLOR_BIT | MATTR_EMIT_BIT | MATTR_TRANSMIT_BIT)
+	(MATTR_COLOR_BIT | MATTR_SPECULAR_BIT | MATTR_EMIT_BIT | MATTR_TRANSMIT_BIT)
 #define MATTR_PBR_BITS \
 	(MATTR_COMMON_BITS | MATTR_ROUGHNESS_BIT | MATTR_METALLIC_BIT)
 #define MATTR_PHONG_BITS \
-	(MATTR_COMMON_BITS | MATTR_SPECULAR_BIT | MATTR_REFLECT_BIT | MATTR_SHININESS_BIT)
+	(MATTR_COMMON_BITS | MATTR_REFLECT_BIT | MATTR_SHININESS_BIT)
 
 struct material {
 	char *name;
@@ -122,6 +122,7 @@ void ray_trace(cgm_vec3 *color, cgm_ray *ray, float energy, int iter);
 void bgcolor(cgm_vec3 *color, cgm_ray *ray);
 
 float fresnel(float costheta, float ior);
+cgm_vec3 fresnel_rgb(float costheta, cgm_vec3 fres0);
 
 int init_material(struct material *mtl);
 void destroy_material(struct material *mtl);

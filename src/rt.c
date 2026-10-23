@@ -272,11 +272,15 @@ void ray_trace(cgm_vec3 *color, cgm_ray *ray, float energy, int iter)
 {
 	struct rayhit hit;
 
-	if(iter < opt.max_iter && ray_scene(ray, &scn, FLT_MAX, &hit)) {
+	if(iter >= opt.max_iter) {
+		cgm_vcons(color, 0, 0, 0);
+		return;
+	}
+
+	if(ray_scene(ray, &scn, FLT_MAX, &hit)) {
 		rend.shade(color, &hit, energy, iter);
 	} else {
 		rend.bgcolor(color, ray);
-		cgm_vscale(color, energy);
 	}
 }
 
@@ -301,10 +305,35 @@ float fresnel(float costheta, float ior)
 	r0 = (1.0f - ior) / (1.0f + ior);
 	r0 *= r0;
 
+	if(costheta < 0.0f) {
+		costheta = 0.0f;
+	} else if(costheta > 1.0f) {
+		costheta = 1.0f;
+	}
 	x = 1.0f - costheta;
 	xsq = x * x;
 
 	return r0 + (1.0f - r0) * (xsq * xsq * x);
+}
+
+cgm_vec3 fresnel_rgb(float costheta, cgm_vec3 fres0)
+{
+	cgm_vec3 res;
+	float x, xsq, x5;
+
+	if(costheta < 0.0f) {
+		costheta = 0.0f;
+	} else if(costheta > 1.0f) {
+		costheta = 1.0f;
+	}
+	x = 1.0f - costheta;
+	xsq = x * x;
+	x5 = xsq * xsq * x;
+
+	res.x = fres0.x + (1.0f - fres0.x) * x5;
+	res.y = fres0.y + (1.0f - fres0.y) * x5;
+	res.z = fres0.z + (1.0f - fres0.z) * x5;
+	return res;
 }
 
 int init_material(struct material *mtl)
@@ -317,7 +346,7 @@ int init_material(struct material *mtl)
 
 	cgm_vcons(&mtl->attr[MATTR_COLOR].value, 0.6, 0.6, 0.6);
 	mtl->attr[MATTR_ROUGHNESS].value.x = 1.0f;
-	mtl->metal = 0;
+	mtl->ior = 1.5;
 	return 0;
 }
 
@@ -331,6 +360,8 @@ void destroy_material(struct material *mtl)
 void eval_material(struct hitmaterial *hitm, const struct material *mtl,
 		cgm_vec2 uv, unsigned int attrmask)
 {
+	hitm->ior = mtl->ior;
+
 	if(attrmask == 0 || attrmask == MATTR_ALL_BITS) {
 		mtlattr_vec(&hitm->color, mtl, MATTR_COLOR, &uv);
 		mtlattr_vec(&hitm->spec, mtl, MATTR_SPECULAR, &uv);

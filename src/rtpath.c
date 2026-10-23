@@ -35,14 +35,24 @@ void pt_shade(cgm_vec3 *out_color, struct rayhit *hit, float energy, int iter)
 {
 	cgm_vec3 n, hvec;
 	float mrough, mtrans, mmetal;
-	float specval, pval, pval_h, rval, fres, fres0, clum, slum, pdiff, pspec;
-	float prefl, ptrans, contrib;
-	cgm_vec3 mcol, mspec, col;
+	float ndotv, ndotl, geom;
+	float specval, pval, pval_h, rval, fres, pdiff, pspec;
+	float wdiff, wspec;
+	float prefl, ptrans;
+	float ior;
+	cgm_vec3 mcol, mspec, col, cdiff, fres0, contrib;
 	cgm_ray ray;
+	struct brdf_sample samp;
 	struct material *mtl = hit->mtl;
+	struct hitmaterial *mtlv = &hit->mtlval;
+
+	eval_material(mtlv, hit->mtl, hit->v.tex, MATTR_PBR_BITS);
 
 	if(cgm_vdot(&hit->vdir, &hit->v.norm) < 0.0f) {
 		cgm_vneg(&hit->v.norm);
+		mtlv->ior = 1.0f / mtl->ior;
+	} else {
+		mtlv->ior = mtl->ior;
 	}
 	cgm_vnormalize(&hit->v.norm);
 	n = hit->v.norm;
@@ -65,63 +75,57 @@ void pt_shade(cgm_vec3 *out_color, struct rayhit *hit, float energy, int iter)
 	}
 #endif
 
-	clum = colavg(mcol);
-	slum = colavg(mspec);
-
 	/* --- sample BRDF --- */
-	fres0 = cgm_lerp(slum * 0.08, clum, mmetal);
-	pdiff = clum / (clum + fres0);
+	ray.origin = hit->v.pos;
+
+	cdiff = cgm_vvscale(mcol, 1.0f - mmetal);
+	fres0 = cgm_vvlerp(cgm_vvscale(mspec, 0.08f), mcol, mmetal);
+
+	wdiff = colavg(cdiff);
+	wspec = colavg(fres0);
+
+	if(wdiff + wspec < 1e-6f) return;
+	pdiff = wdiff / (wdiff + wspec);	/* probability of diffuse interaction */
 
 	rval = frand();
-	/*specval = maxelem(mspec);*/
 
-	ray.origin = hit->v.pos;
-	if(rval <= pdiff) {
+	if(rval < pdiff) {
 		/* diffuse interaction */
-		lambert_brdf.sample(&ray.dir, hit);
-		pval = lambert_brdf.pdf(ray.dir, n, hit);
-		lambert_brdf.eval(&col, n, ray.dir, hit->vdir, hit);
+		lambert_brdf.sample(&samp, hit);
+		ray.dir = samp.dir;
+		pval = samp.pdf;
+		contrib = cgm_vvscale(samp.weight, 1.0f / pdiff);
 
-		contrib = colavg(col) / (pdiff * pval);
 	} else {
 		/* specular interaction */
-/*
-Within the specular branch, sample the microfacet normal first (VNDF), then
-evaluate Fresnel at that specific half-vector to choose reflect vs. transmit.
-*/
 		ggx_brdf.sample(&hvec, hit);
-		fres = fresnel(cgm_vvdot(hit->vdir, hvec), mtl->ior);
+		/*fres = fresnel(cgm_vvdot(hit->vdir, hvec), ior);
 
 		rval = frand();
-		if(mtrans <= 1e-6 || rval <= fres) {
+		if(mtrans <= 1e-6 || rval <= fres) {*/
 			/* reflection */
 			ray.dir = cgm_vvreflect(hit->vdir, hvec);
-			pval_h = ggx_brdf.pdf(ray.dir, hvec, hit);
-			pval = pval_h / (4.0f * cgm_vvdot(hit->vdir, hvec));
 
+			if((ndotl = cgm_vvdot(n, ray.dir)) <= 0.0f) {
+				return;
+			}
+			ndotv = cgm_vvdot(n, hit->vdir);
+			contrib = fresnel_rgb(cgm_vvdot(hit->vdir, hvec), fres0);
+			geom = ggx_g2_over_g1(ndotv, ndotl, mrough) / (1.0f - pdiff);
+			cgm_vscale(&contrib, geom);
+
+			/*pval = ggx_brdf.pdf(ray.dir, hvec, hit);
 			prefl = (1.0f - pdiff) * (mtrans > 1e-6 ? fres : 1.0f);
-
-			ggx_brdf.eval(&col, hvec, ray.dir, hit->vdir, hit);
-			contrib = colavg(col) * cgm_vvdot(ray.dir, n) / (prefl * pval);
+			*/
+#if 0
 		} else {
 			/* transmission */
-			ray.dir = cgm_vvrefract(hit->vdir, hvec, mtl->ior);
-			pval = ggx_brdf.pdf(ray.dir, hvec, hit);
-
-			ptrans = (1.0f - pdiff) * (1.0f - fres);
-
-			ggx_brdf.eval(&col, hvec, ray.dir, hit->vdir, hit);
-			contrib = colavg(col) * cgm_vvdot(ray.dir, n) / (ptrans * pval);
+			return;
 		}
+#endif
 	}
 
-/*
-contribution = f(wi) * cos(wi) / (P_selected * pdf_selected(wi))
-
-where P_selected is the discrete probability you used to pick that lobe (pdiff,
-pspec*F, or pspec*(1-F)), and pdf_selected is that lobe’s own directional pdf.
-*/
-
-	ray_trace(&col, &ray, energy * contrib, iter + 1);
+	ray_trace(&col, &ray, energy * maxelem(contrib), iter + 1);
+	cgm_vmul(&col, &contrib);
 	cgm_vadd(out_color, &col);
 }
