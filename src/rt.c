@@ -360,20 +360,6 @@ void destroy_material(struct material *mtl)
 void eval_material(struct hitmaterial *hitm, const struct material *mtl,
 		cgm_vec2 uv, unsigned int attrmask)
 {
-	hitm->ior = mtl->ior;
-
-	if(attrmask == 0 || attrmask == MATTR_ALL_BITS) {
-		mtlattr_vec(&hitm->color, mtl, MATTR_COLOR, &uv);
-		mtlattr_vec(&hitm->spec, mtl, MATTR_SPECULAR, &uv);
-		mtlattr_vec(&hitm->emit, mtl, MATTR_EMIT, &uv);
-		hitm->refl = mtlattr_num(mtl, MATTR_REFLECT, &uv);
-		hitm->trans = mtlattr_num(mtl, MATTR_TRANSMIT, &uv);
-		hitm->rough = mtlattr_num(mtl, MATTR_ROUGHNESS, &uv);
-		hitm->metallic = mtlattr_num(mtl, MATTR_METALLIC, &uv);
-		hitm->shin = mtlattr_num(mtl, MATTR_SHININESS, &uv);
-		return;
-	}
-
 	if(attrmask & MATTR_COLOR_BIT) {
 		mtlattr_vec(&hitm->color, mtl, MATTR_COLOR, &uv);
 	}
@@ -391,6 +377,7 @@ void eval_material(struct hitmaterial *hitm, const struct material *mtl,
 	}
 	if(attrmask & MATTR_ROUGHNESS_BIT) {
 		hitm->rough = mtlattr_num(mtl, MATTR_ROUGHNESS, &uv);
+		if(hitm->rough <= 0.0f) hitm->rough = 1e-3f;
 	}
 	if(attrmask & MATTR_METALLIC_BIT) {
 		hitm->metallic = mtlattr_num(mtl, MATTR_METALLIC, &uv);
@@ -398,6 +385,8 @@ void eval_material(struct hitmaterial *hitm, const struct material *mtl,
 	if(attrmask & MATTR_SHININESS_BIT) {
 		hitm->shin = mtlattr_num(mtl, MATTR_SHININESS, &uv);
 	}
+
+	hitm->ior = mtl->ior;
 }
 
 float mtlattr_num(const struct material *mtl, int attr, cgm_vec2 *uv)

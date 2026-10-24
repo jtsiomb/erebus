@@ -33,8 +33,9 @@ static void lambert_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vd
 		ndotl = 0.0f;
 	}
 
-	mtlattr_vec(color, hit->mtl, MATTR_COLOR, &hit->v.tex);
-	cgm_vscale(color, ndotl);
+	/*mtlattr_vec(color, hit->mtl, MATTR_COLOR, &hit->v.tex);
+	cgm_vscale(color, ndotl);*/
+	*color = cgm_vvscale(hit->mtlval.color, ndotl);
 }
 
 static int lambert_sample(struct brdf_sample *samp, struct rayhit *hit)
@@ -50,8 +51,11 @@ static int lambert_sample(struct brdf_sample *samp, struct rayhit *hit)
 	samp->dir = dir;
 
 	/* compute sampling weight */
-	mtlattr_vec(&mcol, hit->mtl, MATTR_COLOR, &hit->v.tex);
+	/*mtlattr_vec(&mcol, hit->mtl, MATTR_COLOR, &hit->v.tex);
 	mmetal = mtlattr_num(hit->mtl, MATTR_METALLIC, &hit->v.tex);
+	*/
+	mcol = hit->mtlval.color;
+	mmetal = hit->mtlval.metallic;
 
 	samp->weight = cgm_vvscale(mcol, 1.0f - mmetal);
 
@@ -89,6 +93,7 @@ static void phong_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir
 static int phong_sample(struct brdf_sample *samp, struct rayhit *hit)
 {
 	/* TODO lafortune */
+	return -1;
 }
 
 static float phong_pdf(cgm_vec3 dir, cgm_vec3 n, struct rayhit *hit)
@@ -100,6 +105,7 @@ static float phong_pdf(cgm_vec3 dir, cgm_vec3 n, struct rayhit *hit)
 static void ggx_eval(cgm_vec3 *color, cgm_vec3 n, cgm_vec3 ldir, cgm_vec3 vdir,
 		struct rayhit *hit)
 {
+	/* TODO */
 }
 
 static cgm_vec3 sample_ggx_vndf(cgm_vec3 n, cgm_vec3 v, float rough);
@@ -107,29 +113,47 @@ static float pdf_ggx_vndf(cgm_vec3 n, cgm_vec3 dir_out, cgm_vec3 dir_in, float r
 
 static int ggx_sample(struct brdf_sample *samp, struct rayhit *hit)
 {
-	cgm_vec3 hvec;
-	float ndotv, ndotl, geom, fres, mrough, ior;
+	cgm_vec3 hvec, fres0, fres_rgb, mcol, mspec;
+	float ndotv, ndotl, geom, fres, mrough, mmetal, ior;
 	float rval;
 
-	mrough = mtlattr_num(hit->mtl, MATTR_ROUGHNESS, &hit->v.tex);
-	ior = hit->mtl->ior;
+	/*mtlattr_vec(&mcol, hit->mtl, MATTR_COLOR, &hit->v.tex);
+	mtlattr_vec(&mspec, hit->mtl, MATTR_SPECULAR, &hit->v.tex);
+	mmetal = mtlattr_num(hit->mtl, MATTR_METALLIC, &hit->v.tex);*/
+	mcol = hit->mtlval.color;
+	mspec = hit->mtlval.spec;
+	mmetal = hit->mtlval.metallic;
+
+	mrough = hit->mtlval.rough;	/* mtlval.rough already clamped to be > 0 */
+	ior = hit->mtlval.ior;	/* mtlval.ior has been inverted if ray is exiting */
+
+	/* generate sample direction */
 
 	hvec = sample_ggx_vndf(hit->v.norm, hit->vdir, mrough);
-	fres = fresnel(cgm_vvdot(hit->vdir, hvec), hit->mtlval.ior);
+	samp->dir = cgm_vvreflect(cgm_vvneg(hit->vdir), hvec);
 
-	ndotl = cgm_vvdot(hit->v.norm, samp->dir);
+	/* calculate sample weight */
+	if((ndotl = cgm_vvdot(hit->v.norm, samp->dir)) <= 0.0f) {
+		return -1;	/* reflection below the surface */
+	}
 	ndotv = cgm_vvdot(hit->v.norm, hit->vdir);
-
-	samp->pdf = ggx_pdf(samp->dir, hit->v.norm, hit);
-
 	geom = ggx_g2_over_g1(ndotv, ndotl, mrough);
 
+	fres0 = cgm_vvlerp(cgm_vvscale(mspec, 0.08f), mcol, mmetal);
+	fres_rgb = fresnel_rgb(cgm_vvdot(hit->vdir, hvec), fres0);
+
+	samp->weight = cgm_vvscale(fres_rgb, geom);
+
+	/* pdf */
+	samp->pdf = ggx_pdf(samp->dir, hit->v.norm, hit);
+
+	samp->transmit = 0;
+	return 0;
 }
 
 static float ggx_pdf(cgm_vec3 dir, cgm_vec3 n, struct rayhit *hit)
 {
-	float rough = mtlattr_num(hit->mtl, MATTR_ROUGHNESS, &hit->v.tex);
-	return pdf_ggx_vndf(n, dir, hit->vdir, rough);
+	return pdf_ggx_vndf(n, dir, hit->vdir, hit->mtlval.rough);
 }
 
 /* GGX sampling routine from:
