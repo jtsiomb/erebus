@@ -1,6 +1,8 @@
 #ifndef POSTPROC_H_
 #define POSTPROC_H_
 
+void post_exposure(float e);
+
 void post_gamma(float gamma);
 
 void post_reinhard(void);

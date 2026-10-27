@@ -159,22 +159,31 @@ int main(int argc, char **argv)
 	}
 #endif
 
-	switch(opt.tonemap) {
-	case OPT_TONEMAP_REINHARD:
-		post_reinhard();
-		break;
+	if(!(opt.flags & OPT_HDR)) {
+		if(opt.exposure != 1.0f) {
+			printf("exposure: %g\n", opt.exposure);
+			post_exposure(opt.exposure);
+		}
 
-	case OPT_TONEMAP_ACES:
-		post_acesfilm();
-		break;
+		switch(opt.tonemap) {
+		case OPT_TONEMAP_REINHARD:
+			printf("tone mapping: reinhard\n");
+			post_reinhard();
+			break;
 
-	default:
-		break;
-	}
+		case OPT_TONEMAP_ACES:
+			printf("tone mapping: ACES filmic\n");
+			post_acesfilm();
+			break;
 
-	if(opt.gamma != 1.0f) {
-		printf("gamma correction: %g\n", opt.gamma);
-		post_gamma(opt.gamma);
+		default:
+			break;
+		}
+
+		if(opt.gamma != 1.0f) {
+			printf("gamma correction: %g\n", opt.gamma);
+			post_gamma(opt.gamma);
+		}
 	}
 
 	if(img_save_pixels(opt.outfile, fb.pixels, fb.width, fb.height, IMG_FMT_RGBAF) == -1) {

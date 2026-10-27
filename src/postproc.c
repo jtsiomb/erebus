@@ -2,6 +2,22 @@
 #include "postproc.h"
 #include "util.h"
 
+void post_exposure(float e)
+{
+	int i, npixels;
+	cgm_vec4 *fbptr;
+
+	fbptr = fb.pixels;
+	npixels = fb.width * fb.height;
+
+	for(i=0; i<npixels; i++) {
+		fbptr->x *= e;
+		fbptr->y *= e;
+		fbptr->z *= e;
+		fbptr++;
+	}
+}
+
 void post_gamma(float gamma)
 {
 	int i, npixels;
@@ -50,9 +66,9 @@ void post_acesfilm(void)
 	cgm_vec4 *fbptr = fb.pixels;
 
 	for(i=0; i<npixels; i++) {
-		fbptr->x = acesfilm(fbptr->x * 0.6f);
-		fbptr->y = acesfilm(fbptr->y * 0.6f);
-		fbptr->z = acesfilm(fbptr->z * 0.6f);
+		fbptr->x = acesfilm(fbptr->x);
+		fbptr->y = acesfilm(fbptr->y);
+		fbptr->z = acesfilm(fbptr->z);
 		fbptr++;
 	}
 }

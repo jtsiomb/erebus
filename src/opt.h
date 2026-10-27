@@ -15,6 +15,7 @@ enum opt_tonemap {
 
 enum {
 	OPT_PROGRESS	= 1,
+	OPT_HDR			= 2,
 	OPT_WAIT		= 0x800000
 };
 
@@ -33,7 +34,7 @@ struct options {
 
 	enum opt_renderer renderer;
 	unsigned int flags;
-	float gamma;
+	float gamma, exposure;
 	enum opt_tonemap tonemap;
 };
 

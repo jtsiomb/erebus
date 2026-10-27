@@ -8,7 +8,7 @@ struct options opt = {
 	1280, 720,
 	10,					/* nsamples */
 	0,					/* input file */
-	"output.hdr",		/* output file */
+	"output.png",		/* output file */
 	0,					/* shared memory path */
 	0,					/* number of threads (0=auto) */
 	32,					/* tile size */
@@ -19,6 +19,7 @@ struct options opt = {
 	OPT_DEF_RENDERER,
 	OPT_PROGRESS,
 	2.2f,				/* gamma */
+	1.0f,				/* exposure */
 	OPT_TONEMAP_ACES
 };
 
@@ -36,6 +37,8 @@ static const char *usage_text[] = {
 #endif
 	" -R,-renderer <renderer>: select renderer (rt, path)\n",
 	" -np: disable progress bar\n",
+	" -hdr/-sdr: override HDR output filetype-based auto-detection\n",
+	" -exp <N>: exposure\n",
 	" -gamma <N>: gamma exponent for the output image\n",
 	" -tmap <op>: select tone mapping operator (reinhard, aces)\n",
 	" -h,-help: print usage information and exit\n\n",
@@ -44,7 +47,9 @@ static const char *usage_text[] = {
 
 int parse_args(int argc, char **argv)
 {
-	int i;
+	static const char *hdrsuffix[] = { ".hdr", ".rgbe", 0 };
+	int i, hdr_auto = 1;
+	char *suffix;
 
 	for(i=1; i<argc; i++) {
 		if(argv[i][0] == '-') {
@@ -92,6 +97,20 @@ int parse_args(int argc, char **argv)
 
 			} else if(strcmp(argv[i], "-np") == 0) {
 				opt.flags ^= OPT_PROGRESS;
+
+			} else if(strcmp(argv[i], "-hdr") == 0) {
+				opt.flags |= OPT_HDR;
+				hdr_auto = 0;
+
+			} else if(strcmp(argv[i], "-sdr") == 0) {
+				opt.flags &= ~OPT_HDR;
+				hdr_auto = 0;
+
+			} else if(strcmp(argv[i], "-exp") == 0) {
+				if(!argv[++i] || (opt.exposure = atof(argv[i])) <= 0.0f) {
+					fprintf(stderr, "-exp must be followed by an exposure scale\n");
+					return -1;
+				}
 
 			} else if(strcmp(argv[i], "-gamma") == 0) {
 				if(!argv[++i] || (opt.gamma = atof(argv[i])) <= 0.0f) {
@@ -143,6 +162,16 @@ int parse_args(int argc, char **argv)
 				return -1;
 			}
 			opt.infile = argv[i];
+		}
+	}
+
+	/* auto-detect HDR based on output file suffix */
+	if(hdr_auto && (suffix = strrchr(opt.outfile, '.'))) {
+		for(i=0; hdrsuffix[i]; i++) {
+			if(strcasecmp(suffix, hdrsuffix[i]) == 0) {
+				opt.flags |= OPT_HDR;
+				break;
+			}
 		}
 	}
 
