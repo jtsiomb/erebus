@@ -3,15 +3,17 @@ obj = $(src:.c=.o) ../src/shmfb.o
 dep = $(src:.c=.d)
 bin = erebus-gui
 
+alibs = imtk.a
+
 opt = -O3 -fno-strict-aliasing
 dbg = -g
 warn = -pedantic -Wall
-inc = -I../src -Ilibs/glew
+inc = -I../src -Ilibs/glew -Ilibs/imtk
 
 CFLAGS = -std=gnu89 $(warn) $(opt) $(dbg) $(inc) -MMD
-LDFLAGS = -lGL -lX11 -lm
+LDFLAGS = $(alibs) -lGL -lX11 -lm
 
-$(bin): $(obj)
+$(bin): $(obj) $(alibs)
 	$(CC) -o $@ $(obj) $(LDFLAGS)
 
 -include $(dep)
@@ -26,3 +28,11 @@ clean:
 .PHONY: cleandep
 cleandep:
 	rm -f $(dep)
+
+
+imtk.a:
+	cd libs/imtk; $(MAKE)
+
+.PHONY: cleanlibs
+cleanlibs:
+	cd libs/imtk; $(MAKE) clean

@@ -12,7 +12,9 @@
 #include "glew.h"
 #include "miniglut.h"
 #include "shmfb.h"
+#include "opt.h"
 #include "sdr.h"
+#include "imtk.h"
 
 #define STATUS_FONT		GLUT_BITMAP_HELVETICA_18
 
@@ -46,7 +48,7 @@ static int height = 720;
 static int rend_pid, rend_pipe;
 static int opt_wait;
 
-static unsigned int sdr;
+static unsigned int sdr[3];		/* one for each tone mapping operator */
 
 #define STATUS_LEN		80
 static char st_text[2][STATUS_LEN + 1];
@@ -59,11 +61,15 @@ static struct rect active[MAX_SHM_TILES];
 static int num_active;
 
 enum {
-	UPD_GAMMA = 1
+	UPD_GAMMA = 1,
+	UPD_EXP = 2
 };
 
 static unsigned int pending = 0x7fff;
 static float gammaval = 2.2;
+static float exposure = 1.0;
+
+static enum opt_tonemap tmap = OPT_TONEMAP_ACES;
 
 
 int main(int argc, char **argv)
@@ -246,9 +252,19 @@ int init(void)
 
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, width);
 
-	if(!(sdr = create_program_load("sdr/vertex.glsl", "sdr/pixel.glsl"))) {
+	if(!(sdr[OPT_TONEMAP_NONE] = create_program_load("sdr/vertex.glsl", "sdr/pixel.glsl"))) {
 		return -1;
 	}
+	add_shader_header(GL_FRAGMENT_SHADER, "#define TMAP_ACES");
+	if(!(sdr[OPT_TONEMAP_ACES] = create_program_load("sdr/vertex.glsl", "sdr/pixel.glsl"))) {
+		return -1;
+	}
+	clear_shader_header(GL_FRAGMENT_SHADER);
+	add_shader_header(GL_FRAGMENT_SHADER, "#define TMAP_REINHARD");
+	if(!(sdr[OPT_TONEMAP_REINHARD] = create_program_load("sdr/vertex.glsl", "sdr/pixel.glsl"))) {
+		return -1;
+	}
+	clear_shader_header(GL_FRAGMENT_SHADER);
 
 	xpos_samp = glutBitmapLength(STATUS_FONT, "(888/888)");
 	xpos_prog = glutBitmapLength(STATUS_FONT, "100%00") + xpos_samp;
@@ -257,6 +273,8 @@ int init(void)
 
 void cleanup(void)
 {
+	int i;
+
 	printf("shutting down\n");
 	if(waitpid(rend_pid, 0, WNOHANG) <= 0) {
 		printf("signalling the renderer to stop\n");
@@ -264,7 +282,9 @@ void cleanup(void)
 		wait(0);
 	}
 
-	free_program(sdr);
+	for(i=0; i<3; i++) {
+		free_program(sdr[i]);
+	}
 }
 
 void updatefb(void)
@@ -355,11 +375,18 @@ void display(void)
 	glPushMatrix();
 	glTranslatef(0, STATUSBAR_HEIGHT, 0);
 
-	bind_program(sdr);
-
-	if(pending & UPD_GAMMA) {
-		set_uniform_float(sdr, "inv_gamma", 1.0f / gammaval);
+	if(pending) {
+		for(i=0; i<3; i++) {
+			if(pending & UPD_GAMMA) {
+				set_uniform_float(sdr[i], "inv_gamma", 1.0f / gammaval);
+			}
+			if(pending & UPD_EXP) {
+				set_uniform_float(sdr[i], "exposure", exposure);
+			}
+		}
+		pending = 0;
 	}
+	bind_program(sdr[tmap]);
 
 	glBegin(GL_QUADS);
 	glColor3f(1, 1, 1);
@@ -393,6 +420,11 @@ void display(void)
 
 	glPopMatrix();
 
+	imtk_begin();
+	imtk_slider(IMUID, exposure, 0, 16, IMTK_AUTO, IMTK_AUTO);
+	imtk_slider(IMUID, gammaval, 0, 4, IMTK_AUTO, IMTK_AUTO);
+	imtk_end();
+
 	glColor3f(0.1, 0.2, 0.5);
 	glRecti(0, 0, progr * width / 1024, STATUSBAR_HEIGHT);
 
@@ -404,7 +436,6 @@ void display(void)
 
 	glutSwapBuffers();
 	assert(glGetError() == GL_NO_ERROR);
-	pending = 0;
 }
 
 void reshape(int x, int y)
@@ -414,6 +445,8 @@ void reshape(int x, int y)
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(0, x, 0, y, -1, 1);
+
+	imtk_set_viewport(x, y);
 }
 
 void keypress(unsigned char key, int x, int y)
@@ -437,6 +470,17 @@ void keypress(unsigned char key, int x, int y)
 		glutPostRedisplay();
 		break;
 
+	case '[':
+		exposure *= 0.75f;
+		pending |= UPD_EXP;
+		glutPostRedisplay();
+		break;
+	case ']':
+		exposure *= 1.5f;
+		pending |= UPD_EXP;
+		glutPostRedisplay();
+		break;
+
 	default:
 		break;
 	}
@@ -444,10 +488,14 @@ void keypress(unsigned char key, int x, int y)
 
 void mouse(int bn, int st, int x, int y)
 {
+	int bidx = bn - GLUT_LEFT_BUTTON;
+	int press = st == GLUT_DOWN;
+	imtk_inp_mouse(bidx, press);
 }
 
 void motion(int x, int y)
 {
+	imtk_inp_motion(x, y);
 }
 
 void sighandler(int s)
