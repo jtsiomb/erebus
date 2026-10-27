@@ -1,8 +1,8 @@
-src = src/main.c src/sdr.c src/miniglut.c libs/glew/glew.c
+src = src/main.c src/sdr.c src/miniglut.c
 obj = $(src:.c=.o) ../src/shmfb.o
 bin = erebus-gui
 
-alibs = imtk.a
+alibs = imtk.a glew.a
 
 opt = -O3
 dbg = -g3
@@ -13,9 +13,6 @@ LDFLAGS = -L/usr/local/lib $(alibs) -lGL -lX11 -lm
 
 $(bin): $(obj) $(alibs)
 	$(CC) -o $@ $(obj) $(LDFLAGS)
-
-libs/glew/glew.o: libs/glew/glew.c
-	$(CC) -o $@ -c $< $(CFLAGS) -DGLEW_INCLUDE='"glew.h"'
 
 .PHONY: clean
 clean:
@@ -28,6 +25,10 @@ cleandep:
 imtk.a:
 	cd libs/imtk; $(MAKE)
 
+glew.a:
+	cd libs/glew; $(MAKE)
+
 .PHONY: cleanlibs
 cleanlibs:
 	cd libs/imtk; $(MAKE) clean
+	cd libs/glew; $(MAKE) clean

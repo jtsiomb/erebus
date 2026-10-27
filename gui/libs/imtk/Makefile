@@ -3,8 +3,7 @@ src = button.c checkbox.c draw.c imtk.c layout.c listbox.c progress.c slider.c \
 obj = $(src:.c=.o)
 alib = ../../imtk.a
 
-opt = -O2
-CFLAGS = $(opt) $(dbg) -I../../src
+CFLAGS = -O2 $(dbg) -I../../src -I/usr/local/include
 
 $(alib): $(obj)
 	$(AR) rcs $@ $(obj)

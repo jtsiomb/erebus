@@ -1,9 +1,9 @@
-src = $(wildcard src/*.c) libs/glew/glew.c
+src = $(wildcard src/*.c)
 obj = $(src:.c=.o) ../src/shmfb.o
 dep = $(src:.c=.d)
 bin = erebus-gui
 
-alibs = imtk.a
+alibs = imtk.a glew.a
 
 opt = -O3 -fno-strict-aliasing
 dbg = -g
@@ -31,8 +31,12 @@ cleandep:
 
 
 imtk.a:
-	cd libs/imtk; $(MAKE)
+	$(MAKE) -C libs/imtk
+
+glew.a:
+	$(MAKE) -C libs/glew
 
 .PHONY: cleanlibs
 cleanlibs:
-	cd libs/imtk; $(MAKE) clean
+	$(MAKE) -C libs/imtk clean
+	$(MAKE) -C libs/glew clean

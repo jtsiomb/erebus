@@ -15,7 +15,7 @@ warn = -pedantic -Wall
 inc = -Ilibs -Ilibs/treestor -Ilibs/imago/src -Ilibs/meshfile/src
 
 CFLAGS = -std=gnu89 $(warn) $(opt) $(dbg) $(inc) $(def) -MMD
-LDFLAGS = $(alibs) -lm
+LDFLAGS = $(alibs) -lpthread -lm
 
 ifeq ($(oidn), true)
 	def += -DUSE_OIDN
