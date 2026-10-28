@@ -47,6 +47,8 @@ static int width = 1280;
 static int height = 720;
 static int rend_pid, rend_pipe;
 static int opt_wait;
+static int show_gui = 1;
+static int gui_width = 250, gui_height = 150;
 
 static unsigned int sdr[3];		/* one for each tone mapping operator */
 
@@ -360,7 +362,8 @@ full:	full_redraw = 0;
 
 void display(void)
 {
-	int i, progr;
+	int i, ival, progr, bbox[4];
+	float val;
 	struct rect *rect;
 
 	progr = shmfb_progress();
@@ -420,10 +423,43 @@ void display(void)
 
 	glPopMatrix();
 
-	imtk_begin();
-	imtk_slider(IMUID, exposure, 0, 16, IMTK_AUTO, IMTK_AUTO);
-	imtk_slider(IMUID, gammaval, 0, 4, IMTK_AUTO, IMTK_AUTO);
-	imtk_end();
+	if(show_gui) {
+		imtk_begin();
+
+		glColor3f(0.4, 0.4, 0.4);
+		glRecti(0, 0, gui_width, gui_height);
+
+		imtk_layout_start(10, 10);
+		imtk_layout_spacing(10);
+		imtk_layout_dir(IMTK_HORIZONTAL);
+
+		imtk_label("exposure", IMTK_AUTO, IMTK_AUTO);
+		if((val = imtk_slider(IMUID, exposure, 0, 16, IMTK_AUTO, IMTK_AUTO)) != exposure) {
+			exposure = val;
+			pending |= UPD_EXP;
+			glutPostRedisplay();
+		}
+		imtk_layout_newline();
+		imtk_label("gamma", IMTK_AUTO, IMTK_AUTO);
+		if((val = imtk_slider(IMUID, gammaval, 0, 4, IMTK_AUTO, IMTK_AUTO)) != gammaval) {
+			gammaval = val;
+			pending |= UPD_GAMMA;
+			glutPostRedisplay();
+		}
+		imtk_layout_newline();
+
+		if((ival = (enum opt_tonemap)imtk_radiogroup(IMUID, "None\0ACES filmic\0Reinhard\0", tmap, IMTK_AUTO, IMTK_AUTO))
+				!= (int)tmap) {
+			tmap = (enum opt_tonemap)ival;
+			glutPostRedisplay();
+		}
+		imtk_layout_newline();
+
+		imtk_layout_get_bounds(bbox);
+		gui_width = bbox[2] + 10;
+		gui_height = bbox[3] + 20;
+		imtk_end();
+	}
 
 	glColor3f(0.1, 0.2, 0.5);
 	glRecti(0, 0, progr * width / 1024, STATUSBAR_HEIGHT);
@@ -457,6 +493,11 @@ void keypress(unsigned char key, int x, int y)
 
 	case ' ':
 		kill(rend_pid, SIGCONT);
+		break;
+
+	case '`':
+		show_gui ^= 1;
+		glutPostRedisplay();
 		break;
 
 	case '=':
