@@ -23,6 +23,7 @@ enum {
 	MATTR_ROUGHNESS,	/* PBR: roughness */
 	MATTR_METALLIC,		/* PBR: metallic */
 	MATTR_SHININESS,	/* phong: specular exponent */
+	MATTR_ALPHA,
 
 	NUM_MATTR
 };
@@ -35,12 +36,13 @@ enum {
 	MATTR_TRANSMIT_BIT	= 1 << MATTR_TRANSMIT,
 	MATTR_ROUGHNESS_BIT	= 1 << MATTR_ROUGHNESS,
 	MATTR_METALLIC_BIT	= 1 << MATTR_METALLIC,
-	MATTR_SHININESS_BIT	= 1 << MATTR_SHININESS
+	MATTR_SHININESS_BIT	= 1 << MATTR_SHININESS,
+	MATTR_ALPHA_BIT		= 1 << MATTR_ALPHA
 };
 
 #define MATTR_ALL_BITS		0x7fff
 #define MATTR_COMMON_BITS \
-	(MATTR_COLOR_BIT | MATTR_EMIT_BIT | MATTR_TRANSMIT_BIT)
+	(MATTR_COLOR_BIT | MATTR_EMIT_BIT | MATTR_TRANSMIT_BIT | MATTR_ALPHA_BIT)
 #define MATTR_PBR_BITS \
 	(MATTR_COMMON_BITS | MATTR_ROUGHNESS_BIT | MATTR_METALLIC_BIT)
 #define MATTR_PHONG_BITS \
@@ -60,6 +62,7 @@ struct hitmaterial {
 	cgm_vec3 color, spec, emit;
 	float refl, trans, rough, metallic, shin;
 	float ior;
+	float alpha;
 };
 
 struct framebuffer {

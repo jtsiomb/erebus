@@ -31,9 +31,10 @@ int ray_triangle(cgm_ray *ray, struct triangle *tri, float tmax, struct rayhit *
 
 		if(tri->mtl->mask) {
 			tex_lookup(&mask_texel, tri->mtl->mask, u, v);
-			if(mask_texel.x < 0.5f) {
-				return 0;
-			}
+			if(mask_texel.x < 1e-3f) return 0;
+			hit->mask_alpha = mask_texel.x;
+		} else {
+			hit->mask_alpha = 1.0f;
 		}
 
 		hit->t = t;

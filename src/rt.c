@@ -346,6 +346,7 @@ int init_material(struct material *mtl)
 
 	cgm_vcons(&mtl->attr[MATTR_COLOR].value, 0.6, 0.6, 0.6);
 	mtl->attr[MATTR_ROUGHNESS].value.x = 1.0f;
+	mtl->attr[MATTR_ALPHA].value.x = 1.0f;
 	mtl->ior = 1.5;
 	return 0;
 }
@@ -360,20 +361,17 @@ void destroy_material(struct material *mtl)
 void eval_material(struct hitmaterial *hitm, const struct material *mtl,
 		cgm_vec2 uv, unsigned int attrmask)
 {
-	if(attrmask & MATTR_COLOR_BIT) {
-		mtlattr_vec(&hitm->color, mtl, MATTR_COLOR, &uv);
-	}
+	/* unconditionally evaluate all attributes in MATTR_COMMON_BITS */
+	mtlattr_vec(&hitm->color, mtl, MATTR_COLOR, &uv);
+	mtlattr_vec(&hitm->emit, mtl, MATTR_EMIT, &uv);
+	hitm->trans = mtlattr_num(mtl, MATTR_TRANSMIT, &uv);
+	hitm->alpha = mtlattr_num(mtl, MATTR_ALPHA, &uv);
+
 	if(attrmask & MATTR_SPECULAR_BIT) {
 		mtlattr_vec(&hitm->spec, mtl, MATTR_SPECULAR, &uv);
 	}
-	if(attrmask & MATTR_EMIT_BIT) {
-		mtlattr_vec(&hitm->emit, mtl, MATTR_EMIT, &uv);
-	}
 	if(attrmask & MATTR_REFLECT_BIT) {
 		hitm->refl = mtlattr_num(mtl, MATTR_REFLECT, &uv);
-	}
-	if(attrmask & MATTR_TRANSMIT_BIT) {
-		hitm->trans = mtlattr_num(mtl, MATTR_TRANSMIT, &uv);
 	}
 	if(attrmask & MATTR_ROUGHNESS_BIT) {
 		hitm->rough = mtlattr_num(mtl, MATTR_ROUGHNESS, &uv);
@@ -396,7 +394,7 @@ float mtlattr_num(const struct material *mtl, int attr, cgm_vec2 *uv)
 
 	if(mtl->attr[attr].tex) {
 		tex_lookup(&texel, mtl->attr[attr].tex, uv->x, uv->y);
-		return texel.x;
+		return mtl->attr[attr].value.x * texel.x;
 	}
 	return mtl->attr[attr].value.x;
 }
@@ -405,6 +403,7 @@ void mtlattr_vec(cgm_vec3 *res, const struct material *mtl, int attr, cgm_vec2 *
 {
 	if(mtl->attr[attr].tex) {
 		tex_lookup(res, mtl->attr[attr].tex, uv->x, uv->y);
+		cgm_vmul(res, &mtl->attr[attr].value);
 	} else {
 		*res = mtl->attr[attr].value;
 	}
@@ -437,22 +436,22 @@ void tex_lookup(cgm_vec3 *res, struct image *img, float u, float v)
 void mtlprint(FILE *fp, const struct material *mtl)
 {
 	static const char *aname[] = {"color", "specular", "emit", "reflect",
-		"transmit", "roughness", "metallic", "shininess" };
+		"transmit", "roughness", "metallic", "shininess", "alpha" };
 	int i;
 
-	fprintf(fp, "Material: %s\n", mtl->name);
+	fprintf(fp, "Material: \"%s\"\n", mtl->name);
 	for(i=0; i<NUM_MATTR; i++) {
 		fprintf(fp, " %s: %g %g %g", aname[i], mtl->attr[i].value.x, mtl->attr[i].value.y,
 				mtl->attr[i].value.z);
 		if(mtl->attr[i].tex) {
-			fprintf(fp, " - tex: %s\n", mtl->attr[i].tex->name);
+			fprintf(fp, " - tex: \"%s\"\n", mtl->attr[i].tex->name);
 		} else {
 			fputc('\n', fp);
 		}
 	}
 	fprintf(fp, " ior: %g\n", mtl->ior);
 	if(mtl->mask) {
-		fprintf(fp, " mask: %s\n", mtl->mask->name);
+		fprintf(fp, " mask: \"%s\"\n", mtl->mask->name);
 	}
 }
 

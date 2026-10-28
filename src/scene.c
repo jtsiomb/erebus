@@ -401,7 +401,7 @@ static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlpr
 	} else if(strcmp(mtlprop, "specular") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_SPECULAR].value.x, opval, 3);
 		mtlop_tex(op, &mtl->attr[MATTR_SPECULAR], &opattr->val);
-	} else if(strcmp(mtlprop, "emit") == 0) {
+	} else if(strcmp(mtlprop, "emissive") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_EMIT].value.x, opval, 3);
 		mtlop_tex(op, &mtl->attr[MATTR_EMIT], &opattr->val);
 	} else if(strcmp(mtlprop, "roughness") == 0) {

@@ -8,6 +8,8 @@
 #include "meshfile.h"
 #include "imago2.h"
 
+#define NO_MASK
+
 
 static struct mesh *conv_mesh(struct scenefile *scn, struct mf_mesh *mfm);
 static struct material *conv_mtl(struct mf_material *mmtl, const char *path_prefix);
@@ -196,7 +198,8 @@ static struct material *conv_mtl(struct mf_material *mmtl, const char *path_pref
 		MF_TRANSMIT,
 		MF_ROUGHNESS,
 		MF_METALLIC,
-		MF_SHININESS
+		MF_SHININESS,
+		MF_ALPHA
 	};
 
 	struct material *mtl;

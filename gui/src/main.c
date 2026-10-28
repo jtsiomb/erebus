@@ -47,7 +47,7 @@ static int width = 1280;
 static int height = 720;
 static int rend_pid, rend_pipe;
 static int opt_wait;
-static int show_gui = 1;
+static int show_gui;
 static int gui_width = 250, gui_height = 150;
 
 static unsigned int sdr[3];		/* one for each tone mapping operator */

@@ -34,7 +34,7 @@ static INLINE float colavg(cgm_vec3 v)
 void pt_shade(cgm_vec3 *out_color, struct rayhit *hit, float energy, int iter)
 {
 	cgm_vec3 n;
-	float mmetal, fres0;
+	float alpha, mmetal, fres0;
 	float pval, rval, pdiff;
 	float wdiff, wspec;
 	cgm_vec3 mcol, col, cdiff, fres0_rgb, contrib;
@@ -44,6 +44,13 @@ void pt_shade(cgm_vec3 *out_color, struct rayhit *hit, float energy, int iter)
 	struct hitmaterial *mtlv = &hit->mtlval;
 
 	eval_material(mtlv, hit->mtl, hit->v.tex, MATTR_PBR_BITS);
+	alpha = mtlv->alpha * hit->mask_alpha;
+
+	if(alpha < 1.0f && frand() > alpha) {
+		ray.origin = hit->v.pos;
+		ray_trace(out_color, &ray, energy, iter);
+		return;
+	}
 
 	if(cgm_vdot(&hit->vdir, &hit->v.norm) < 0.0f) {
 		cgm_vneg(&hit->v.norm);
