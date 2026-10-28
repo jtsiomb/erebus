@@ -121,8 +121,9 @@ int parse_args(int argc, char **argv)
 			} else if(strcmp(argv[i], "-tmap") == 0) {
 				enum opt_tonemap tmap;
 				if(!argv[++i] || ((tmap = OPT_TONEMAP_REINHARD, strcmp(argv[i], "reinhard") != 0) &&
-						(tmap = OPT_TONEMAP_ACES, strcmp(argv[i], "aces") != 0))) {
-					fprintf(stderr, "%s must be followed by the renderer (reinhard, aces)\n", argv[i - 1]);
+						(tmap = OPT_TONEMAP_ACES, strcmp(argv[i], "aces") != 0) &&
+						(tmap = OPT_TONEMAP_NONE, strcmp(argv[i], "none") != 0))) {
+					fprintf(stderr, "%s must be followed by the tone mapping (reinhard, aces)\n", argv[i - 1]);
 					return -1;
 				}
 				opt.tonemap = tmap;
@@ -289,14 +290,30 @@ int read_options(const char *fname)
 
 			opt.gamma = attr->val.fnum;
 
+		} else if(strcmp(attr->name, "exposure") == 0) {
+			if(attr->val.type != TS_NUMBER || attr->val.fnum <= 0.0f) {
+				fprintf(stderr, "%s: exposure: value must be a positive number\n", fname);
+				goto next;
+			}
+			opt.exposure = attr->val.fnum;
+
 		} else if(strcmp(attr->name, "tonemap") == 0) {
-			if(attr->val.type != TS_STRING) {
+			if((val = bool_value(attr)) != -1) {
+				if(!val) opt.tonemap = OPT_TONEMAP_NONE;
+				goto next;
+			}
+
+			if(attr->val.type == TS_STRING) {
 				if(strcmp(attr->val.str, "reinhard") == 0) {
 					opt.tonemap = OPT_TONEMAP_REINHARD;
 					goto next;
 				}
 				if(strcmp(attr->val.str, "aces") == 0) {
 					opt.tonemap = OPT_TONEMAP_ACES;
+					goto next;
+				}
+				if(strcmp(attr->val.str, "none") == 0) {
+					opt.tonemap = OPT_TONEMAP_NONE;
 					goto next;
 				}
 			}
