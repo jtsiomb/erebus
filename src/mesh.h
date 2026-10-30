@@ -32,4 +32,6 @@ void destroy_scenefile(struct scenefile *scn);
 
 void destroy_mesh(struct mesh *m);
 
+struct image *load_texture(const char *fname, const char *path_prefix);
+
 #endif	/* MESH_H_ */

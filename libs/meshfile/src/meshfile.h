@@ -1,6 +1,6 @@
 /*
 meshfile - a simple C library for reading/writing 3D mesh file formats
-Copyright (C) 2025  John Tsiombikas <nuclear@mutantstargoat.com>
+Copyright (C) 2025-2026  John Tsiombikas <nuclear@mutantstargoat.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -249,6 +249,7 @@ int mf_node_remove_child(struct mf_node *n, struct mf_node *c);
 void mf_node_update_xform(struct mf_node *n);
 
 /* utility functions */
+const char *mf_asset_path(const struct mf_meshfile *mf);
 const char *mf_find_asset(const struct mf_meshfile *mf, const char *fname);
 
 #endif	/* MESHFILE_H_ */

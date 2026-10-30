@@ -10,8 +10,9 @@
 #include "dynarr.h"
 
 static int add_mesh_faces(struct scene *scn, struct bvhnode *bnode, struct mesh *mesh);
-static void proc_edits(struct ts_node *snode, struct scenefile *sf);
-static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlprop, struct scenefile *sf);
+static void proc_edits(struct ts_node *snode, struct scenefile *sf, const char *path_prefix);
+static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlprop,
+		struct scenefile *sf, const char *path_prefix);
 int read_scene_node(struct node *node, struct ts_node *tsn);
 
 void init_scene_node(struct node *n)
@@ -155,7 +156,7 @@ int load_scene(struct scene *scn, const char *fname)
 			}
 
 			/* perform any edits on the loaded scene */
-			proc_edits(node, &sf);
+			proc_edits(node, &sf, dirname);
 
 			conv_scene(scn, &sf);
 
@@ -327,7 +328,7 @@ static int add_mesh_faces(struct scene *scn, struct bvhnode *bnode, struct mesh 
 	return 0;
 }
 
-static void proc_edits(struct ts_node *snode, struct scenefile *sf)
+static void proc_edits(struct ts_node *snode, struct scenefile *sf, const char *path_prefix)
 {
 	const char *mtlname, *mtlprop;
 	struct ts_node *node;
@@ -343,7 +344,7 @@ static void proc_edits(struct ts_node *snode, struct scenefile *sf)
 				fprintf(stderr, "proc_edits: prop attribute missing\n");
 				goto next;
 			}
-			edit_mtl(node, mtlname, mtlprop, sf);
+			edit_mtl(node, mtlname, mtlprop, sf, path_prefix);
 		}
 next:	node = node->next;
 	}
@@ -361,14 +362,14 @@ struct {
 	{0, 0}
 };
 
-static void mtlop_tex(int op, struct mtlattr *ma, struct ts_value *val)
+static void mtlop_tex(int op, struct mtlattr *ma, struct ts_value *val, const char *path_prefix)
 {
 	if(op != OP_TEX) return;
 
 	if(val->type == TS_NUMBER) {
 		if(val->inum == 0) ma->tex = 0;
 	} else {
-		ma->tex = get_image(val->str, 0, 0);
+		ma->tex = load_texture(val->str, path_prefix);
 	}
 }
 
@@ -384,7 +385,8 @@ static void mtlop_vec(int op, float *vptr, float *data, int nelem)
 	}
 }
 
-static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlprop, struct scenefile *sf)
+static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlprop,
+		struct scenefile *sf, const char *path_prefix)
 {
 	int i, op;
 	struct material *mtl = 0;
@@ -429,27 +431,27 @@ static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlpr
 
 	if(strcmp(mtlprop, "color") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_COLOR].value.x, opval, 3);
-		mtlop_tex(op, &mtl->attr[MATTR_COLOR], &opattr->val);
+		mtlop_tex(op, &mtl->attr[MATTR_COLOR], &opattr->val, path_prefix);
 	} else if(strcmp(mtlprop, "specular") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_SPECULAR].value.x, opval, 3);
-		mtlop_tex(op, &mtl->attr[MATTR_SPECULAR], &opattr->val);
+		mtlop_tex(op, &mtl->attr[MATTR_SPECULAR], &opattr->val, path_prefix);
 	} else if(strcmp(mtlprop, "emissive") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_EMIT].value.x, opval, 3);
-		mtlop_tex(op, &mtl->attr[MATTR_EMIT], &opattr->val);
+		mtlop_tex(op, &mtl->attr[MATTR_EMIT], &opattr->val, path_prefix);
 	} else if(strcmp(mtlprop, "roughness") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_ROUGHNESS].value.x, opval, 1);
-		mtlop_tex(op, &mtl->attr[MATTR_ROUGHNESS], &opattr->val);
+		mtlop_tex(op, &mtl->attr[MATTR_ROUGHNESS], &opattr->val, path_prefix);
 	} else if(strcmp(mtlprop, "ior") == 0) {
 		mtlop_vec(op, &mtl->ior, opval, 1);
 	} else if(strcmp(mtlprop, "reflect") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_REFLECT].value.x, opval, 1);
-		mtlop_tex(op, &mtl->attr[MATTR_REFLECT], &opattr->val);
+		mtlop_tex(op, &mtl->attr[MATTR_REFLECT], &opattr->val, path_prefix);
 	} else if(strcmp(mtlprop, "transmit") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_TRANSMIT].value.x, opval, 1);
-		mtlop_tex(op, &mtl->attr[MATTR_TRANSMIT], &opattr->val);
+		mtlop_tex(op, &mtl->attr[MATTR_TRANSMIT], &opattr->val, path_prefix);
 	} else if(strcmp(mtlprop, "metal") == 0) {
 		mtlop_vec(op, &mtl->attr[MATTR_METALLIC].value.x, opval, 1);
-		mtlop_tex(op, &mtl->attr[MATTR_METALLIC], &opattr->val);
+		mtlop_tex(op, &mtl->attr[MATTR_METALLIC], &opattr->val, path_prefix);
 	}
 	return 0;
 }

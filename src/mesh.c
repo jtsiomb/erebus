@@ -12,9 +12,8 @@
 
 
 static struct mesh *conv_mesh(struct scenefile *scn, struct mf_mesh *mfm);
-static struct material *conv_mtl(struct mf_material *mmtl, const char *path_prefix);
-static struct image *load_texture(const char *fname, const char *path_prefix);
 static struct image *load_texture_mem(struct mf_image_data *imgdata);
+static struct material *conv_mtl(struct mf_material *mmtl, const char *path_prefix);
 static void calc_face_normal(struct triangle *tri);
 
 static struct material def_mtl;
@@ -271,7 +270,7 @@ static struct material *conv_mtl(struct mf_material *mmtl, const char *path_pref
 	return mtl;
 }
 
-static struct image *load_texture(const char *fname, const char *path_prefix)
+struct image *load_texture(const char *fname, const char *path_prefix)
 {
 	char *path;
 
