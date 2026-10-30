@@ -30,12 +30,19 @@ struct light {
 	struct light *next;
 };
 
+struct lightsource {
+	struct mesh *mesh;
+	struct light *lt;
+};
+
 struct scene {
 	cgm_vec3 ambient;
 	cgm_vec3 bgcolor;
 
 	struct bvhnode *st_root;
 	struct bvhnode *dyn_root;
+
+	struct lightsource *lights;
 
 	struct mesh *meshlist;
 	struct camera *camlist;

@@ -7,8 +7,9 @@
 #include "treestor.h"
 #include "mesh.h"
 #include "util.h"
+#include "dynarr.h"
 
-static int add_mesh_faces(struct bvhnode *bnode, struct mesh *mesh);
+static int add_mesh_faces(struct scene *scn, struct bvhnode *bnode, struct mesh *mesh);
 static void proc_edits(struct ts_node *snode, struct scenefile *sf);
 static int edit_mtl(struct ts_node *node, const char *mtlname, const char *mtlprop, struct scenefile *sf);
 int read_scene_node(struct node *node, struct ts_node *tsn);
@@ -51,7 +52,7 @@ static void conv_scene(struct scene *scn, struct scenefile *sf)
 
 	mesh = meshtail = sf->meshlist;
 	while(mesh) {
-		add_mesh_faces(scn->st_root, mesh);
+		add_mesh_faces(scn, scn->st_root, mesh);
 		meshtail = mesh;
 		mesh = mesh->next;
 	}
@@ -78,12 +79,21 @@ int load_scene(struct scene *scn, const char *fname)
 	struct scenefile sf;
 	unsigned long start_time;
 	float *vec, num;
+	void *tmp;
+	struct lightsource ltsrc;
 
 	memset(scn, 0, sizeof *scn);
 	if(!(scn->st_root = calloc(1, sizeof *scn->st_root)) ||
 			!(scn->dyn_root = calloc(1, sizeof *scn->dyn_root))) {
 		free(scn->st_root);
 		fprintf(stderr, "load_scene: failed to allocate bvh root nodes\n");
+		return -1;
+	}
+
+	if(!(scn->lights = dynarr_alloc(0, sizeof *scn->lights))) {
+		free(scn->st_root);
+		free(scn->dyn_root);
+		fprintf(stderr, "load_scene: failed to allocate light source\n");
 		return -1;
 	}
 
@@ -131,6 +141,7 @@ int load_scene(struct scene *scn, const char *fname)
 					fprintf(stderr, "load_scene: failed to allocate path buffer\n");
 					free(path);
 					ts_free_tree(root);
+					destroy_scene(scn);
 					return -1;
 				}
 				path = tmp;
@@ -195,6 +206,14 @@ int load_scene(struct scene *scn, const char *fname)
 
 			lt->next = scn->lightlist;
 			scn->lightlist = lt;
+
+			/* also add to the light sampling array */
+			ltsrc.lt = lt;
+			if(!(tmp = dynarr_push(scn->lights, &ltsrc))) {
+				fprintf(stderr, "load_scene: failed to add light to the light source array\n");
+				goto cont;
+			}
+			scn->lights = tmp;
 		}
 cont:	node = node->next;
 	}
@@ -221,6 +240,8 @@ void destroy_scene(struct scene *scn)
 		scn->meshlist = scn->meshlist->next;
 		destroy_mesh(mesh);
 	}
+
+	dynarr_free(scn->lights);
 }
 
 struct mesh *find_scn_mesh(struct scene *scn, const char *name)
@@ -263,11 +284,12 @@ int ray_scene(cgm_ray *ray, struct scene *scn, float tmax, struct rayhit *hit)
 	return 0;
 }
 
-static int add_mesh_faces(struct bvhnode *bnode, struct mesh *mesh)
+static int add_mesh_faces(struct scene *scn, struct bvhnode *bnode, struct mesh *mesh)
 {
 	int i, j, newsz;
 	void *tmp;
 	struct triangle *tri, **triptr;
+	struct lightsource ltsrc;
 
 	newsz = bnode->num_faces + mesh->num_faces;
 	if(!(tmp = realloc(bnode->faces, newsz * sizeof *bnode->faces))) {
@@ -291,6 +313,16 @@ static int add_mesh_faces(struct bvhnode *bnode, struct mesh *mesh)
 			if(p->z > bnode->aabb.vmax.z) bnode->aabb.vmax.z = p->z;
 		}
 		tri++;
+	}
+
+	/* if the material is emissive, add to the lights array */
+	if(maxelem(mesh->mtl->attr[MATTR_EMIT].value) > 0.0f || mesh->mtl->attr[MATTR_EMIT].tex) {
+		ltsrc.mesh = mesh;
+		if(!(tmp = dynarr_push(scn->lights, &ltsrc))) {
+			fprintf(stderr, "failed to add emissive mesh to the light sources\n");
+		} else {
+			scn->lights = tmp;
+		}
 	}
 	return 0;
 }

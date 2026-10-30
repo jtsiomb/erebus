@@ -1,6 +1,7 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+#include "cgmath/cgmath.h"
 #include "szint.h"
 
 #if __STDC_VERSION__ >= 199901L
@@ -83,5 +84,19 @@ typedef unsigned long ATOMIC_INT;
 
 #endif
 
+static INLINE float max(float x, float y)
+{
+	return x > y ? x : y;
+}
+
+static INLINE float maxelem(cgm_vec3 v)
+{
+	return max(v.x, max(v.y, v.z));
+}
+
+static INLINE float colavg(cgm_vec3 v)
+{
+	return (v.x + v.y + v.z) / 3.0f;
+}
 
 #endif	/* UTIL_H_ */

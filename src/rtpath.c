@@ -4,6 +4,7 @@
 #include "rt.h"
 #include "scene.h"
 #include "brdf.h"
+#include "util.h"
 
 
 void pt_shade(cgm_vec3 *color, struct rayhit *hit, float energy, int iter);
@@ -15,21 +16,6 @@ struct renderer pt_renderer = {
 	pt_shade
 };
 
-
-static INLINE float max(float x, float y)
-{
-	return x > y ? x : y;
-}
-
-static INLINE float maxelem(cgm_vec3 v)
-{
-	return max(v.x, max(v.y, v.z));
-}
-
-static INLINE float colavg(cgm_vec3 v)
-{
-	return (v.x + v.y + v.z) / 3.0f;
-}
 
 void pt_shade(cgm_vec3 *out_color, struct rayhit *hit, float energy, int iter)
 {
